@@ -26,12 +26,23 @@ Recommend analytics events organized by priority tier, tailored to the specific 
 
 ## P0: Auto-Tracked (No Action Needed)
 
-The MoonForge SDK automatically tracks these when initialized:
-- `session_start` — with session_id
-- `session_end` — with session_id, duration_seconds
-- Scene changes — via `SceneManager.sceneLoaded` (TrackScreenView)
+The MoonForge SDK automatically tracks these when initialized (`MoonForgeAnalytics.Initialize()`):
 
-Tell the user these are already covered.
+**Analytics events (via TrackEvent):**
+- `session_start` — fires on init with `{ session_id }`
+- `session_end` — fires on shutdown with `{ session_id, duration_seconds }`
+- `session_start` (re-engagement) — fires after `sessionTimeoutSeconds` (default 1800s) of inactivity, includes `{ session_id, previous_session_id }`
+
+**Screen views (via TrackScreenView):**
+- Initial scene screen view on init
+- Automatic screen view on every `SceneManager.sceneLoaded` event (when `trackSceneViewsAutomatically` is enabled, which is the default)
+
+**Error tracking (separate system, NOT analytics events):**
+- Unhandled exceptions, Unity log errors, native crashes (iOS/Android), network errors
+- These go to `/api/errors` as `ErrorPayload`, not to the analytics pipeline
+- Scene change breadcrumbs for error context
+
+Tell the user P0 is fully covered — no instrumentation needed.
 
 ## P1: Core Loop Events (Genre-Specific)
 
