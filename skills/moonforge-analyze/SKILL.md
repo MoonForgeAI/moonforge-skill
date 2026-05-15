@@ -62,7 +62,25 @@ grep -r "MoonForgeAnalytics" Assets/ --include="*.cs" -l
 grep -r "TrackEvent\|TrackScreenView\|Identify" Assets/ --include="*.cs" -l
 ```
 
-### 5. Infer Game Genre
+Also check for existing error tracking usage:
+
+```bash
+# Check for error tracking and breadcrumb usage
+grep -r "MoonForgeErrorTracker\|AddBreadcrumb\|CaptureException\|SendWithTracking" Assets/ --include="*.cs" -l
+```
+
+### 5. Check SDK Configuration
+
+Look for `MoonForgeSettings` asset in the project:
+
+```bash
+# Find MoonForgeSettings ScriptableObject
+find Assets/ -name "MoonForgeSettings*" -type f
+```
+
+If found, note the configuration: `gameId`, `enabled`, `enableAnalytics`, `trackSceneViewsAutomatically`, `sessionTimeoutSeconds`, `enableNetworkErrorTracking`. These affect which P0 events are auto-tracked.
+
+### 6. Infer Game Genre
 
 Based on scripts found, classify the game:
 - **Casual/Puzzle** — match-3, word games, simple tap mechanics
@@ -72,19 +90,30 @@ Based on scripts found, classify the game:
 - **Multiplayer** — lobbies, matchmaking, leaderboards
 - **Hyper-casual** — minimal UI, one mechanic, ad-driven
 
-### 6. Output Game Profile
+### 7. Check for Network Requests
+
+Look for `UnityWebRequest` usage — these can benefit from `SendWithTracking()` or `NetworkErrorInterceptor`:
+
+```bash
+grep -rn "UnityWebRequest" Assets/ --include="*.cs" -l
+```
+
+### 8. Output Game Profile
 
 Present findings to user as structured summary:
 
 ```
 ## Game Profile: [Game Name]
 
-**Game ID:** [from .moonforge.json]
+**Game ID:** [from .moonforge.json or user-provided]
 **Genre:** [inferred]
 **Scenes:** [ordered list with flow arrows]
 **Core Systems:** [list of key MonoBehaviours with descriptions]
 **Existing Analytics:** [any TrackEvent calls found, or "None"]
+**Existing Error Tracking:** [any CaptureException/AddBreadcrumb calls, or "None"]
+**Network Requests:** [scripts using UnityWebRequest, or "None"]
 **SDK Status:** [installed/not installed]
+**SDK Config:** [key settings if MoonForgeSettings found]
 ```
 
 ## Common Mistakes
@@ -93,3 +122,4 @@ Present findings to user as structured summary:
 - Missing `Packages/` folder scripts that may contain game logic
 - Not reading `EditorBuildSettings.asset` for scene order
 - Listing files without understanding what they do
+- Not checking for existing error tracking alongside analytics

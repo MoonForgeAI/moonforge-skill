@@ -18,7 +18,7 @@ Recommend analytics events organized by priority tier, tailored to the specific 
 ## Priority Tiers
 
 | Tier | Purpose | Instrumentation |
-|------|---------|-----------------|
+|------|---------|--------------------|
 | P0 | Session health | Auto-tracked by SDK — no code needed |
 | P1 | Core loop | Must implement — essential for retention |
 | P2 | Engagement depth | Should implement — reveals behavior patterns |
@@ -41,6 +41,7 @@ The MoonForge SDK automatically tracks these when initialized (`MoonForgeAnalyti
 - Unhandled exceptions, Unity log errors, native crashes (iOS/Android), network errors
 - These go to `/api/errors` as `ErrorPayload`, not to the analytics pipeline
 - Scene change breadcrumbs for error context
+- Auto-collected device context: platform, OS, device model, CPU, GPU, memory, FPS, battery level, network type, thermal state
 
 **Auto-collected payload fields on every event (do NOT duplicate in custom properties):**
 - `game` — game ID from config
@@ -51,6 +52,11 @@ The MoonForge SDK automatically tracks these when initialized (`MoonForgeAnalyti
 - `title` — current scene name
 - `referrer` — previous scene as `scene://PreviousScene`
 - `timestamp` — unix seconds
+
+**Server-side enrichment (also auto, no code needed):**
+- Geolocation (country, region, city) from IP
+- Session management (deterministic session IDs, 30-min visit windows)
+- UTM parameters and click IDs (gclid, fbclid, etc.) if present
 
 Tell the user P0 is fully covered — no instrumentation needed. Also tell them not to include scene, device, or language info in custom event properties since the SDK captures these automatically.
 
@@ -96,7 +102,7 @@ Recommend based on game genre from the profile:
 ## P2: Engagement Events (Cross-Genre)
 
 | Event | Properties | Applicable When |
-|-------|-----------|-----------------|
+|-------|-----------|--------------------|
 | `tutorial_step_completed` | step_id, step_name | Game has tutorial |
 | `tutorial_skipped` | at_step | Tutorial is skippable |
 | `achievement_unlocked` | achievement_id, achievement_name | Achievement system |
@@ -112,7 +118,58 @@ Recommend based on game genre from the profile:
 | `iap_initiated` | product_id, price, currency | In-app purchases |
 | `iap_completed` | product_id, price, currency, transaction_id | IAP tracking |
 | `ab_variant_assigned` | experiment_id, variant | A/B testing |
-| `error_occurred` | error_type, message, context | Error tracking |
+| `error_occurred` | error_type, message, context | Custom error tracking |
+
+## Beyond TrackEvent: Additional SDK Capabilities
+
+When recommending events, also consider these SDK features that the game may benefit from:
+
+### User Identity (for games with accounts)
+```csharp
+MoonForgeAnalytics.Identify("user_123", new Dictionary<string, object>
+{
+    { "plan", "premium" },
+    { "signup_date", "2024-01-15" }
+});
+MoonForgeAnalytics.SetUserProperty("player_level", 42);
+```
+Recommend when the game has user accounts, login, or persistent profiles.
+
+### Error Context via Breadcrumbs
+```csharp
+MoonForgeErrorTracker.Instance.AddBreadcrumb("Entered boss fight",
+    BreadcrumbType.Navigation,
+    new Dictionary<string, string> { { "boss_id", "dragon_01" } });
+```
+Recommend when the game has complex flows where crash context would help debugging.
+
+### Game State for Error Reports
+```csharp
+MoonForgeErrorTracker.Instance.SetGameState("BossFight", new Dictionary<string, object>
+{
+    { "boss_id", "dragon_01" },
+    { "player_health", 45 }
+});
+```
+Recommend for games with distinct states (menu, playing, paused, loading) so error reports include game context.
+
+### Network Error Tracking
+```csharp
+// Replace request.SendWebRequest() with:
+yield return request.SendWithTracking();
+```
+Recommend when the game makes API calls (leaderboards, cloud saves, multiplayer, ads).
+
+### Manual Exception Capture
+```csharp
+try { LoadLevel(id); }
+catch (Exception ex)
+{
+    MoonForgeErrorTracker.Instance.CaptureException(ex, ErrorLevel.Error,
+        new Dictionary<string, object> { { "level_id", id } });
+}
+```
+Recommend for critical code paths where you want to catch and report errors without crashing.
 
 ## Presentation Format
 
@@ -123,6 +180,7 @@ Present events to user grouped by tier:
 
 ### P0: Auto-Tracked (already handled by SDK)
 - session_start, session_end, scene changes
+- Device context, geolocation, session management (all automatic)
 
 ### P1: Core Loop (recommended)
 [table of genre-specific events]
@@ -133,6 +191,9 @@ Present events to user grouped by tier:
 ### P3: Advanced (optional)
 [table of applicable events]
 
+### Additional SDK Features to Consider
+[list any applicable: Identify, breadcrumbs, game state, network tracking, exception capture]
+
 **Which tiers would you like to implement? (e.g., "P1 and P2")**
 ```
 
@@ -142,3 +203,6 @@ Present events to user grouped by tier:
 - Not tailoring P1 events to the actual game genre
 - Recommending P0 events for manual implementation (SDK handles them)
 - Too many properties per event (keep to 3-5 max)
+- Including auto-collected fields (scene, device, language, timestamp) as custom properties
+- Not recommending Identify when the game clearly has user accounts
+- Not recommending network tracking when the game has API calls

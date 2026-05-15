@@ -97,18 +97,132 @@ Run compilation check, static analysis, and present event inventory.
 | moonforge-implement | Write TrackEvent calls | `/moonforge:implement` |
 | moonforge-verify | Check build + collector | `/moonforge:verify` |
 
-## SDK API Quick Reference
+## Full SDK API Reference
+
+Namespace: `MoonForge.ErrorTracking.Analytics`
+
+### Analytics (TrackEvent / TrackScreenView / Identify / SetUserProperty)
 
 ```csharp
 using MoonForge.ErrorTracking.Analytics;
+using System.Collections.Generic;
 
-MoonForgeAnalytics.TrackEvent("name", new Dictionary<string, object> { { "key", value } });
+// Track a custom event
+MoonForgeAnalytics.TrackEvent("event_name", new Dictionary<string, object>
+{
+    { "key", value }
+});
+
+// Track a screen view
 MoonForgeAnalytics.TrackScreenView("screen_name");
-MoonForgeAnalytics.Identify("user_id", new Dictionary<string, object> { { "trait", value } });
+
+// Identify a user (for games with user accounts)
+MoonForgeAnalytics.Identify("user_id", new Dictionary<string, object>
+{
+    { "trait_key", value }
+});
+
+// Set persistent user property (included in all subsequent events)
 MoonForgeAnalytics.SetUserProperty("key", value);
 ```
 
-**Auto-tracked (P0):** session_start, session_end, scene changes — no code needed.
+### Error Tracking (MoonForgeErrorTracker singleton)
+
+```csharp
+using MoonForge.ErrorTracking;
+
+// Set current user for error context
+MoonForgeErrorTracker.Instance.SetUser("user_123", "user@example.com", "UserName");
+MoonForgeErrorTracker.Instance.ClearUser();
+
+// Game state context (attached to error reports)
+MoonForgeErrorTracker.Instance.SetGameState("Playing", new Dictionary<string, object>
+{
+    { "level_id", 5 },
+    { "score", 1200 }
+});
+
+// Manual breadcrumbs for debugging context
+MoonForgeErrorTracker.Instance.AddBreadcrumb("Player picked up item", BreadcrumbType.UserAction,
+    new Dictionary<string, string> { { "item_id", "sword_01" } });
+
+// Capture exceptions manually
+try { /* ... */ }
+catch (Exception ex)
+{
+    MoonForgeErrorTracker.Instance.CaptureException(ex, ErrorLevel.Error,
+        new Dictionary<string, object> { { "context", "inventory_load" } });
+}
+
+// Capture a custom message
+MoonForgeErrorTracker.Instance.CaptureMessage("Something unexpected", ErrorLevel.Warning);
+
+// Flush pending events before shutdown
+MoonForgeErrorTracker.Instance.Flush();
+```
+
+### Network Error Tracking
+
+```csharp
+using MoonForge.ErrorTracking;
+using MoonForge.ErrorTracking.Capture;
+
+// Option A: Extension method on UnityWebRequest
+var request = UnityWebRequest.Get("https://api.example.com/data");
+yield return request.SendWithTracking();  // auto-tracks errors
+
+// Option B: Manual tracked request via NetworkErrorInterceptor
+yield return NetworkErrorInterceptor.Instance.SendTrackedRequest(
+    request, "api_data_fetch");
+
+// Option C: Manual error reporting
+NetworkErrorInterceptor.Instance.ReportError(
+    "https://api.example.com/data", 500, "Internal Server Error",
+    "GET", "api_data_fetch");
+```
+
+### Enums
+
+```csharp
+// Error severity levels
+enum ErrorLevel { Debug, Info, Warning, Error, Fatal }
+
+// Breadcrumb categories
+enum BreadcrumbType { Navigation, UserAction, Network, Debug, Error }
+
+// Breadcrumb severity
+enum BreadcrumbLevel { Debug, Info, Warning, Error, Fatal }
+```
+
+### MoonForgeSettings (ScriptableObject in Resources/)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| gameId | string | — | MoonForge game UUID (required) |
+| enabled | bool | true | Master kill switch |
+| enableInEditor | bool | true | Track in Unity Editor |
+| debugMode | bool | false | Verbose console logging |
+| enableAnalytics | bool | true | Enable analytics pipeline |
+| trackSceneViewsAutomatically | bool | true | Auto-track scene changes |
+| sessionTimeoutSeconds | int | 1800 | Inactivity timeout for new session |
+| maxBreadcrumbs | int | 50 | Ring buffer size for breadcrumbs |
+| enableNetworkErrorTracking | bool | true | Track UnityWebRequest errors |
+| errorStatusCodeThreshold | int | 400 | HTTP status >= this is an error |
+| captureConnectionErrors | bool | true | Track DNS/TLS/connection failures |
+| captureHttpErrors | bool | true | Track HTTP error responses |
+| addBreadcrumbsForAllRequests | bool | false | Breadcrumb every request, not just errors |
+
+## Auto-Tracked (P0) — No Code Needed
+
+The SDK automatically tracks when initialized:
+- `session_start` — on init with `{ session_id }`
+- `session_end` — on shutdown with `{ session_id, duration_seconds }`
+- Session re-engagement after `sessionTimeoutSeconds` of inactivity
+- Scene changes via `TrackScreenView` on `SceneManager.sceneLoaded`
+- Unhandled exceptions, Unity log errors, native crashes (separate error pipeline)
+
+**Auto-collected fields on EVERY event (never duplicate in custom properties):**
+`game`, `id` (user UUID), `screen` (resolution), `language`, `url` (current scene), `title` (scene name), `referrer` (previous scene), `timestamp`
 
 ## .moonforge.json Format
 

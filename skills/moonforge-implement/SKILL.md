@@ -7,7 +7,7 @@ description: Use when writing MoonForgeAnalytics.TrackEvent() calls into Unity C
 
 ## Overview
 
-Write `MoonForgeAnalytics.TrackEvent()` calls into the correct locations in Unity C# scripts. Shows diffs for user approval before writing.
+Write `MoonForgeAnalytics.TrackEvent()` calls into the correct locations in Unity C# scripts. Shows diffs for user approval before writing. Can also implement Identify, breadcrumbs, game state, network tracking, and exception capture.
 
 ## When to Use
 
@@ -15,9 +15,13 @@ Write `MoonForgeAnalytics.TrackEvent()` calls into the correct locations in Unit
 - When manually instrumenting specific events in a Unity game
 - When `/moonforge` orchestrator calls this as third step
 
-## SDK API Reference
+## Full SDK API Reference
 
-Namespace: `MoonForge.ErrorTracking.Analytics`
+Namespace: `MoonForge.ErrorTracking.Analytics` (analytics)
+Namespace: `MoonForge.ErrorTracking` (error tracking, breadcrumbs, game state)
+Namespace: `MoonForge.ErrorTracking.Capture` (network error interceptor)
+
+### Analytics
 
 ```csharp
 using MoonForge.ErrorTracking.Analytics;
@@ -42,6 +46,84 @@ MoonForgeAnalytics.Identify("user_id", new Dictionary<string, object>
 MoonForgeAnalytics.SetUserProperty("key", value);
 ```
 
+### Error Tracking
+
+```csharp
+using MoonForge.ErrorTracking;
+
+// Set user context for error reports
+MoonForgeErrorTracker.Instance.SetUser("user_id", "email@example.com", "DisplayName");
+MoonForgeErrorTracker.Instance.ClearUser();
+
+// Set game state (attached to all error reports until changed)
+MoonForgeErrorTracker.Instance.SetGameState("Playing", new Dictionary<string, object>
+{
+    { "level_id", currentLevel },
+    { "score", playerScore }
+});
+// Update individual game state data without changing the state name
+MoonForgeErrorTracker.Instance.SetGameStateData(new Dictionary<string, object>
+{
+    { "health", currentHealth }
+});
+
+// Manual breadcrumbs (auto-collected: scene changes, network requests)
+MoonForgeErrorTracker.Instance.AddBreadcrumb("message", BreadcrumbType.UserAction,
+    new Dictionary<string, string> { { "key", "value" } });
+// Typed breadcrumb helpers
+MoonForgeErrorTracker.Instance.AddBreadcrumb("Navigated to Shop", BreadcrumbType.Navigation);
+MoonForgeErrorTracker.Instance.AddBreadcrumb("Bought item", BreadcrumbType.UserAction);
+MoonForgeErrorTracker.Instance.AddBreadcrumb("API call failed", BreadcrumbType.Network);
+MoonForgeErrorTracker.Instance.AddBreadcrumb("Cache miss", BreadcrumbType.Debug);
+
+// Manual exception capture
+try { /* risky code */ }
+catch (Exception ex)
+{
+    MoonForgeErrorTracker.Instance.CaptureException(ex, ErrorLevel.Error,
+        new Dictionary<string, object> { { "context_key", "value" } });
+}
+
+// Capture a custom message (not tied to an exception)
+MoonForgeErrorTracker.Instance.CaptureMessage("Something unexpected", ErrorLevel.Warning);
+
+// Flush pending data before app quit
+MoonForgeErrorTracker.Instance.Flush();
+```
+
+### Network Error Tracking
+
+```csharp
+using MoonForge.ErrorTracking.Capture;
+using UnityEngine.Networking;
+
+// Option A: Extension method (simplest — just replace SendWebRequest)
+var request = UnityWebRequest.Get("https://api.example.com/data");
+yield return request.SendWithTracking();  // auto-tracks errors >= threshold
+
+// Option B: Tracked request with label (for filtering in dashboard)
+yield return NetworkErrorInterceptor.Instance.SendTrackedRequest(
+    request, "leaderboard_fetch");
+
+// Option C: Manual error reporting (when not using UnityWebRequest)
+NetworkErrorInterceptor.Instance.ReportError(
+    "https://api.example.com/data", 500, "Internal Server Error",
+    "GET", "api_data_fetch");
+```
+
+### Enums
+
+```csharp
+// Error severity
+enum ErrorLevel { Debug, Info, Warning, Error, Fatal }
+
+// Breadcrumb categories
+enum BreadcrumbType { Navigation, UserAction, Network, Debug, Error }
+
+// Breadcrumb severity
+enum BreadcrumbLevel { Debug, Info, Warning, Error, Fatal }
+```
+
 ## Implementation Process
 
 For each event in the selected tiers:
@@ -53,12 +135,16 @@ Use the game profile from moonforge-analyze to locate where each event should fi
 ### 2. Check for Existing Imports
 
 If missing, add at the top of the file (outside any namespace block):
-- `using MoonForge.ErrorTracking.Analytics;`
-- `using System.Collections.Generic;` (for Dictionary)
+- `using MoonForge.ErrorTracking.Analytics;` — for TrackEvent, TrackScreenView, Identify, SetUserProperty
+- `using MoonForge.ErrorTracking;` — for MoonForgeErrorTracker, AddBreadcrumb, CaptureException, SetGameState, SetUser
+- `using MoonForge.ErrorTracking.Capture;` — for NetworkErrorInterceptor, SendWithTracking
+- `using System.Collections.Generic;` — for Dictionary
 
-### 3. Write the TrackEvent Call
+Only add the imports actually needed for the calls being written.
 
-Place the call at the logical point where the event occurs:
+### 3. Write the Calls
+
+Place calls at the logical point where the event occurs:
 
 ```csharp
 public void OnLevelComplete(int stars)
@@ -77,7 +163,52 @@ public void OnLevelComplete(int stars)
 }
 ```
 
-### 4. Show Diff and Get Approval
+### 4. Implement Additional SDK Features (if recommended)
+
+Based on moonforge-events recommendations, also implement:
+
+**Identify** — Call after login/signup:
+```csharp
+public void OnLoginSuccess(User user)
+{
+    MoonForgeAnalytics.Identify(user.id, new Dictionary<string, object>
+    {
+        { "username", user.name },
+        { "signup_date", user.createdAt }
+    });
+}
+```
+
+**Game State** — Set on state transitions:
+```csharp
+public void EnterGameplay(int levelId)
+{
+    MoonForgeErrorTracker.Instance.SetGameState("Playing", new Dictionary<string, object>
+    {
+        { "level_id", levelId }
+    });
+}
+```
+
+**Network Tracking** — Replace `SendWebRequest()`:
+```csharp
+// Before:
+yield return request.SendWebRequest();
+// After:
+yield return request.SendWithTracking();
+```
+
+**Breadcrumbs** — Add at key decision points:
+```csharp
+public void OnBossFightStart(string bossId)
+{
+    MoonForgeErrorTracker.Instance.AddBreadcrumb("Boss fight started",
+        BreadcrumbType.Navigation,
+        new Dictionary<string, string> { { "boss_id", bossId } });
+}
+```
+
+### 5. Show Diff and Get Approval
 
 **Always show the diff to the user before writing.** Present each file's changes as a group.
 
@@ -103,3 +234,6 @@ public void OnLevelComplete(int stars)
 - Placing `using` statement inside a namespace block
 - Forgetting `System.Collections.Generic` import for Dictionary
 - Not checking if the SDK is installed (look for MoonForgeSettings asset)
+- Using `MoonForge.ErrorTracking` import when only analytics is needed (or vice versa)
+- Adding `SendWithTracking()` without `using MoonForge.ErrorTracking.Capture`
+- Duplicating auto-collected fields (scene, device, language, timestamp) in custom properties

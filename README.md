@@ -92,6 +92,8 @@ If you already know your game ID (useful when another agent is doing the work):
 
 ## SDK API Reference
 
+### Analytics
+
 ```csharp
 using MoonForge.ErrorTracking.Analytics;
 using System.Collections.Generic;
@@ -114,6 +116,42 @@ MoonForgeAnalytics.Identify("user_123", new Dictionary<string, object>
 
 // Set persistent user property
 MoonForgeAnalytics.SetUserProperty("player_level", 42);
+```
+
+### Error Tracking
+
+```csharp
+using MoonForge.ErrorTracking;
+
+// Set user context for error reports
+MoonForgeErrorTracker.Instance.SetUser("user_id", "email", "DisplayName");
+
+// Set game state (attached to error reports)
+MoonForgeErrorTracker.Instance.SetGameState("Playing", new Dictionary<string, object>
+{
+    { "level_id", 5 }
+});
+
+// Manual breadcrumbs for debugging context
+MoonForgeErrorTracker.Instance.AddBreadcrumb("Boss fight started",
+    BreadcrumbType.Navigation,
+    new Dictionary<string, string> { { "boss_id", "dragon_01" } });
+
+// Capture exceptions manually
+MoonForgeErrorTracker.Instance.CaptureException(ex, ErrorLevel.Error,
+    new Dictionary<string, object> { { "context", "inventory_load" } });
+```
+
+### Network Error Tracking
+
+```csharp
+using MoonForge.ErrorTracking.Capture;
+
+// Replace SendWebRequest() with SendWithTracking() — auto-tracks errors
+yield return request.SendWithTracking();
+
+// Or use labeled tracked requests
+yield return NetworkErrorInterceptor.Instance.SendTrackedRequest(request, "api_fetch");
 ```
 
 ## Repository Structure
