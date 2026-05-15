@@ -44,18 +44,6 @@ git clone https://github.com/MoonForgeAI/moonforge-skill.git /tmp/moonforge-skil
 rm -rf ~/.claude/skills/moonforge ~/.claude/skills/moonforge-analyze ~/.claude/skills/moonforge-events ~/.claude/skills/moonforge-implement ~/.claude/skills/moonforge-verify
 ```
 
-## Prerequisites
-
-Before using this skill, your Unity project needs:
-
-1. **MoonForge Unity SDK installed** — Run `moon analytics init` in your Unity project root
-2. **`.moonforge.json` in project root** — Created automatically by `moon analytics init`
-
-Install the Moon CLI:
-```bash
-npm install -g @moonforge/moon
-```
-
 ## Usage
 
 ### Full Guided Flow
@@ -66,12 +54,15 @@ Open Claude Code in your Unity project directory and run:
 /moonforge
 ```
 
-This walks you through:
-1. Scanning your game to understand its structure
-2. Recommending events organized by priority (P0 = auto-tracked, P1 = core loop, P2 = engagement, P3 = advanced)
-3. Letting you pick which tiers to implement
-4. Writing the actual TrackEvent calls into your C# scripts (with diff approval)
-5. Verifying compilation and event delivery
+The skill will:
+1. Detect your Unity project and ask for your MoonForge game ID (or read it from `.moonforge.json` if present)
+2. Scan your game to understand its structure
+3. Recommend events organized by priority (P0 = auto-tracked, P1 = core loop, P2 = engagement, P3 = advanced)
+4. Let you pick which tiers to implement
+5. Write the actual TrackEvent calls into your C# scripts (with diff approval)
+6. Verify compilation and event delivery
+
+No prerequisites — the skill asks you for everything it needs.
 
 ### Pass Game ID Directly
 

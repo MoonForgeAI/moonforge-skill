@@ -12,16 +12,8 @@ Interactive agent that guides Unity developers through analytics instrumentation
 ## When to Use
 
 - User wants to add analytics events to their Unity game
-- User has run `moon analytics init` and wants to instrument events
 - User says "instrument my game" or "add analytics" for a Unity project
 - Another agent receives a game ID and needs to add analytics
-
-## Prerequisites
-
-- MoonForge Unity SDK installed (check for `MoonForgeSettings` asset in `Assets/Resources/`)
-- `.moonforge.json` in project root (created by `moon analytics init`)
-
-If prerequisites aren't met, tell the user to run `moon analytics init` first.
 
 ## Arguments
 
@@ -33,7 +25,7 @@ If prerequisites aren't met, tell the user to run `moon analytics init` first.
 digraph moonforge {
     "Start" [shape=doublecircle];
     "Detect Unity project" [shape=box];
-    "Read .moonforge.json" [shape=box];
+    "Get game ID" [shape=box];
     "game_id provided?" [shape=diamond];
     "Use provided game_id" [shape=box];
     "moonforge-analyze" [shape=box, style=bold];
@@ -46,9 +38,9 @@ digraph moonforge {
     "Start" -> "Detect Unity project";
     "Detect Unity project" -> "game_id provided?";
     "game_id provided?" -> "Use provided game_id" [label="yes"];
-    "game_id provided?" -> "Read .moonforge.json" [label="no"];
+    "game_id provided?" -> "Get game ID" [label="no"];
     "Use provided game_id" -> "moonforge-analyze";
-    "Read .moonforge.json" -> "moonforge-analyze";
+    "Get game ID" -> "moonforge-analyze";
     "moonforge-analyze" -> "moonforge-events";
     "moonforge-events" -> "User selects tiers";
     "User selects tiers" -> "moonforge-implement";
@@ -69,8 +61,8 @@ If not found, ask the user for the Unity project path.
 
 Priority order:
 1. Passed as argument to this skill
-2. Read from `.moonforge.json` in project root
-3. Ask the user
+2. Read from `.moonforge.json` if present in project root
+3. Ask the user for their MoonForge game ID
 
 ### Step 3: Analyze
 
