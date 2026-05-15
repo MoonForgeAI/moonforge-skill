@@ -122,7 +122,7 @@ MoonForgeAnalytics.SetUserProperty("player_level", 42);
 moonforge-skill/
 ├── README.md
 ├── skills/
-│   ├── SKILL.md                          # Orchestrator entry point
+│   ├── moonforge/SKILL.md                # Orchestrator entry point (/moonforge)
 │   ├── moonforge-analyze/SKILL.md        # Project scanner
 │   ├── moonforge-events/SKILL.md         # Event recommender
 │   ├── moonforge-implement/SKILL.md      # Code writer
