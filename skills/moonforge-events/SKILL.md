@@ -42,7 +42,17 @@ The MoonForge SDK automatically tracks these when initialized (`MoonForgeAnalyti
 - These go to `/api/errors` as `ErrorPayload`, not to the analytics pipeline
 - Scene change breadcrumbs for error context
 
-Tell the user P0 is fully covered — no instrumentation needed.
+**Auto-collected payload fields on every event (do NOT duplicate in custom properties):**
+- `game` — game ID from config
+- `id` — distinct user ID (auto-generated UUID, persisted in PlayerPrefs)
+- `screen` — device resolution (e.g. "1920x1080")
+- `language` — device language code (e.g. "en")
+- `url` — current scene as `scene://SceneName`
+- `title` — current scene name
+- `referrer` — previous scene as `scene://PreviousScene`
+- `timestamp` — unix seconds
+
+Tell the user P0 is fully covered — no instrumentation needed. Also tell them not to include scene, device, or language info in custom event properties since the SDK captures these automatically.
 
 ## P1: Core Loop Events (Genre-Specific)
 

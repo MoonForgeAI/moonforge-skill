@@ -93,6 +93,7 @@ public void OnLevelComplete(int stars)
 - Cast to appropriate types: strings for IDs, ints/floats for numeric values
 - Keep property count to 3-5 per event
 - Use `snake_case` for property keys
+- **Never add these as custom properties** — the SDK auto-collects them on every event: `game`, `id` (user ID), `screen` (resolution), `language`, `url` (current scene), `title` (scene name), `referrer` (previous scene), `timestamp`
 
 ## Common Mistakes
 
