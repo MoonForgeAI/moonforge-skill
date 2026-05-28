@@ -103,7 +103,7 @@ If the user can run the game in Unity Editor:
 4. Verify collector is reachable:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}" https://collect.moonforge.co/api/send
+curl -s -o /dev/null -w "%{http_code}" https://collector.moonforge.co/api/send
 ```
 
 **Collector rate limits (for reference):**
