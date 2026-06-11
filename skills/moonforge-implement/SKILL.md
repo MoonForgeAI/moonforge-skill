@@ -52,36 +52,42 @@ MoonForgeAnalytics.SetUserProperty("key", value);
 using MoonForge.ErrorTracking;
 
 // Set user context for error reports
-MoonForgeErrorTracker.Instance.SetUser("user_id", "email@example.com", "DisplayName");
+// SetUser(string userId, Dictionary<string, string> tags = null)
+MoonForgeErrorTracker.Instance.SetUser("user_id", new Dictionary<string, string>
+{
+    { "email", "email@example.com" },
+    { "displayName", "DisplayName" }
+});
 MoonForgeErrorTracker.Instance.ClearUser();
 
 // Set game state (attached to all error reports until changed)
-MoonForgeErrorTracker.Instance.SetGameState("Playing", new Dictionary<string, object>
-{
-    { "level_id", currentLevel },
-    { "score", playerScore }
-});
-// Update individual game state data without changing the state name
-MoonForgeErrorTracker.Instance.SetGameStateData(new Dictionary<string, object>
-{
-    { "health", currentHealth }
-});
+// SetGameState(string sceneName = null, string gameMode = null, string levelId = null)
+MoonForgeErrorTracker.Instance.SetGameState(sceneName: "Arena", gameMode: "Ranked", levelId: currentLevel);
+// Add arbitrary custom game-state data — one key/value at a time
+// SetGameStateData(string key, object value)
+MoonForgeErrorTracker.Instance.SetGameStateData("score", playerScore);
+MoonForgeErrorTracker.Instance.SetGameStateData("health", currentHealth);
 
 // Manual breadcrumbs (auto-collected: scene changes, network requests)
-MoonForgeErrorTracker.Instance.AddBreadcrumb("message", BreadcrumbType.UserAction,
-    new Dictionary<string, string> { { "key", "value" } });
+// AddBreadcrumb(string message, BreadcrumbType type = BreadcrumbType.User,
+//               BreadcrumbLevel level = BreadcrumbLevel.Info, string category = null)
+// BreadcrumbType values: Navigation, Network, User, Debug, Error
+MoonForgeErrorTracker.Instance.AddBreadcrumb("Equipped sword", BreadcrumbType.User,
+    BreadcrumbLevel.Info, "inventory");
 // Typed breadcrumb helpers
 MoonForgeErrorTracker.Instance.AddBreadcrumb("Navigated to Shop", BreadcrumbType.Navigation);
-MoonForgeErrorTracker.Instance.AddBreadcrumb("Bought item", BreadcrumbType.UserAction);
+MoonForgeErrorTracker.Instance.AddBreadcrumb("Bought item", BreadcrumbType.User);
 MoonForgeErrorTracker.Instance.AddBreadcrumb("API call failed", BreadcrumbType.Network);
 MoonForgeErrorTracker.Instance.AddBreadcrumb("Cache miss", BreadcrumbType.Debug);
 
 // Manual exception capture
+// CaptureException(Exception exception, ErrorLevel level = ErrorLevel.Error,
+//                  Dictionary<string, string> tags = null)
 try { /* risky code */ }
 catch (Exception ex)
 {
     MoonForgeErrorTracker.Instance.CaptureException(ex, ErrorLevel.Error,
-        new Dictionary<string, object> { { "context_key", "value" } });
+        new Dictionary<string, string> { { "context_key", "value" } });
 }
 
 // Capture a custom message (not tied to an exception)
@@ -102,11 +108,12 @@ var request = UnityWebRequest.Get("https://api.example.com/data");
 yield return request.SendWithTracking();  // auto-tracks errors >= threshold
 
 // Option B: Tracked request with label (for filtering in dashboard)
-yield return NetworkErrorInterceptor.Instance.SendTrackedRequest(
+// NetworkErrorInterceptor is a static class — call its methods directly (no .Instance)
+yield return NetworkErrorInterceptor.SendTrackedRequest(
     request, "leaderboard_fetch");
 
 // Option C: Manual error reporting (when not using UnityWebRequest)
-NetworkErrorInterceptor.Instance.ReportError(
+NetworkErrorInterceptor.ReportError(
     "https://api.example.com/data", 500, "Internal Server Error",
     "GET", "api_data_fetch");
 ```
@@ -115,10 +122,10 @@ NetworkErrorInterceptor.Instance.ReportError(
 
 ```csharp
 // Error severity
-enum ErrorLevel { Debug, Info, Warning, Error, Fatal }
+enum ErrorLevel { Info, Warning, Error, Fatal }
 
 // Breadcrumb categories
-enum BreadcrumbType { Navigation, UserAction, Network, Debug, Error }
+enum BreadcrumbType { Navigation, Network, User, Debug, Error }
 
 // Breadcrumb severity
 enum BreadcrumbLevel { Debug, Info, Warning, Error, Fatal }
@@ -183,10 +190,8 @@ public void OnLoginSuccess(User user)
 ```csharp
 public void EnterGameplay(int levelId)
 {
-    MoonForgeErrorTracker.Instance.SetGameState("Playing", new Dictionary<string, object>
-    {
-        { "level_id", levelId }
-    });
+    MoonForgeErrorTracker.Instance.SetGameState(sceneName: "Gameplay", gameMode: "Playing",
+        levelId: levelId.ToString());
 }
 ```
 

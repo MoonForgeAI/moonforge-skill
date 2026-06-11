@@ -132,26 +132,32 @@ MoonForgeAnalytics.SetUserProperty("key", value);
 using MoonForge.ErrorTracking;
 
 // Set current user for error context
-MoonForgeErrorTracker.Instance.SetUser("user_123", "user@example.com", "UserName");
+// SetUser(string userId, Dictionary<string, string> tags = null)
+MoonForgeErrorTracker.Instance.SetUser("user_123", new Dictionary<string, string>
+{
+    { "email", "user@example.com" },
+    { "displayName", "UserName" }
+});
 MoonForgeErrorTracker.Instance.ClearUser();
 
 // Game state context (attached to error reports)
-MoonForgeErrorTracker.Instance.SetGameState("Playing", new Dictionary<string, object>
-{
-    { "level_id", 5 },
-    { "score", 1200 }
-});
+// SetGameState(string sceneName = null, string gameMode = null, string levelId = null)
+MoonForgeErrorTracker.Instance.SetGameState(sceneName: "Arena", gameMode: "Ranked", levelId: "5");
+// Arbitrary custom state data — one key/value per call
+MoonForgeErrorTracker.Instance.SetGameStateData("score", 1200);
 
 // Manual breadcrumbs for debugging context
-MoonForgeErrorTracker.Instance.AddBreadcrumb("Player picked up item", BreadcrumbType.UserAction,
-    new Dictionary<string, string> { { "item_id", "sword_01" } });
+// AddBreadcrumb(string message, BreadcrumbType type = User, BreadcrumbLevel level = Info, string category = null)
+MoonForgeErrorTracker.Instance.AddBreadcrumb("Player picked up item", BreadcrumbType.User,
+    BreadcrumbLevel.Info, "inventory");
 
 // Capture exceptions manually
+// CaptureException(Exception, ErrorLevel level = Error, Dictionary<string, string> tags = null)
 try { /* ... */ }
 catch (Exception ex)
 {
     MoonForgeErrorTracker.Instance.CaptureException(ex, ErrorLevel.Error,
-        new Dictionary<string, object> { { "context", "inventory_load" } });
+        new Dictionary<string, string> { { "context", "inventory_load" } });
 }
 
 // Capture a custom message
@@ -171,12 +177,12 @@ using MoonForge.ErrorTracking.Capture;
 var request = UnityWebRequest.Get("https://api.example.com/data");
 yield return request.SendWithTracking();  // auto-tracks errors
 
-// Option B: Manual tracked request via NetworkErrorInterceptor
-yield return NetworkErrorInterceptor.Instance.SendTrackedRequest(
+// Option B: Manual tracked request via NetworkErrorInterceptor (static class — no .Instance)
+yield return NetworkErrorInterceptor.SendTrackedRequest(
     request, "api_data_fetch");
 
 // Option C: Manual error reporting
-NetworkErrorInterceptor.Instance.ReportError(
+NetworkErrorInterceptor.ReportError(
     "https://api.example.com/data", 500, "Internal Server Error",
     "GET", "api_data_fetch");
 ```
@@ -185,10 +191,10 @@ NetworkErrorInterceptor.Instance.ReportError(
 
 ```csharp
 // Error severity levels
-enum ErrorLevel { Debug, Info, Warning, Error, Fatal }
+enum ErrorLevel { Info, Warning, Error, Fatal }
 
 // Breadcrumb categories
-enum BreadcrumbType { Navigation, UserAction, Network, Debug, Error }
+enum BreadcrumbType { Navigation, Network, User, Debug, Error }
 
 // Breadcrumb severity
 enum BreadcrumbLevel { Debug, Info, Warning, Error, Fatal }
