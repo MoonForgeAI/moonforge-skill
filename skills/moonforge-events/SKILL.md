@@ -137,19 +137,19 @@ Recommend when the game has user accounts, login, or persistent profiles.
 
 ### Error Context via Breadcrumbs
 ```csharp
+// AddBreadcrumb(string message, BreadcrumbType type = User, BreadcrumbLevel level = Info, string category = null)
 MoonForgeErrorTracker.Instance.AddBreadcrumb("Entered boss fight",
-    BreadcrumbType.Navigation,
-    new Dictionary<string, string> { { "boss_id", "dragon_01" } });
+    BreadcrumbType.Navigation, BreadcrumbLevel.Info, "combat");
 ```
 Recommend when the game has complex flows where crash context would help debugging.
 
 ### Game State for Error Reports
 ```csharp
-MoonForgeErrorTracker.Instance.SetGameState("BossFight", new Dictionary<string, object>
-{
-    { "boss_id", "dragon_01" },
-    { "player_health", 45 }
-});
+// SetGameState(string sceneName = null, string gameMode = null, string levelId = null)
+MoonForgeErrorTracker.Instance.SetGameState(sceneName: "BossArena", gameMode: "BossFight");
+// Attach arbitrary custom state — one key/value per call
+MoonForgeErrorTracker.Instance.SetGameStateData("boss_id", "dragon_01");
+MoonForgeErrorTracker.Instance.SetGameStateData("player_health", 45);
 ```
 Recommend for games with distinct states (menu, playing, paused, loading) so error reports include game context.
 
@@ -166,7 +166,7 @@ try { LoadLevel(id); }
 catch (Exception ex)
 {
     MoonForgeErrorTracker.Instance.CaptureException(ex, ErrorLevel.Error,
-        new Dictionary<string, object> { { "level_id", id } });
+        new Dictionary<string, string> { { "level_id", id.ToString() } });
 }
 ```
 Recommend for critical code paths where you want to catch and report errors without crashing.
