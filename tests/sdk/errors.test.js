@@ -47,4 +47,22 @@ describe('errors', () => {
     expect(bc.length).toBe(50);
     expect(bc[0].message).toBe('b10');
   });
+
+  it('captureNetworkError coerces a non-string errorMessage without throwing', async () => {
+    const f = mockErr();
+    const r = await err.captureNetworkError('https://x/y', { method: 'GET', errorMessage: 12345 });
+    expect(r).toBe(true);
+    expect(typeof JSON.parse(f.mock.calls.at(-1)[1].body).payload.message).toBe('string');
+  });
+
+  it('parses Firefox/Safari style stack frames', async () => {
+    const f = mockErr();
+    const e = new Error('x');
+    e.stack = 'x@https://game.example/app.js:10:5\n@https://game.example/app.js:20:1';
+    await err.captureException(e);
+    const frames = JSON.parse(f.mock.calls.at(-1)[1].body).payload.frames;
+    expect(frames.length).toBe(2);
+    expect(frames[0]).toMatchObject({ function: 'x', filename: 'https://game.example/app.js', lineno: 10, colno: 5 });
+    expect(frames[1].function).toBe('<anonymous>');
+  });
 });
