@@ -869,18 +869,23 @@ git commit -m "feat(sdk): wire entry, session auto-tracking, error auto-capture,
 
 ---
 
-### Task 6: Single-file global build for legacy `<script>` games
+### Task 6: Single-file global build for legacy `<script>` games (esbuild)
 
 **Files:**
+- Modify: `package.json` (add `esbuild` devDependency)
 - Create: `scripts/build-sdk.mjs`
 - Create (generated, committed): `skills/moonforge-implement/assets/moonforge-sdk/moonforge.global.js`
 - Test: `tests/sdk/build.test.js`
 
 **Interfaces:**
-- Consumes: the 5 SDK modules.
-- Produces: `moonforge.global.js` — an IIFE with no `import`/`export` that defines `window.MoonForgeAnalytics` and `window.MoonForgeErrorTracker`. `scripts/build-sdk.mjs` regenerates it.
+- Consumes: the SDK entry `index.js` (which imports the other four modules).
+- Produces: `moonforge.global.js` — a browser IIFE bundle (no top-level `import`/`export`) that, when loaded, attaches `MoonForgeAnalytics` and `MoonForgeErrorTracker` to `window`/`globalThis`. `scripts/build-sdk.mjs` (`npm run build:sdk`) regenerates it.
 
-- [ ] **Step 1: Write the failing test**
+Rationale: the SDK is authored as ES modules where sibling modules legitimately reuse local helper names (e.g. `ensure`, `flush` in both `analytics.js` and `errors.js`). Naive text concatenation into one scope would produce duplicate top-level declarations and break. **esbuild** (a dev-only dependency; the shipped SDK stays zero-runtime-dep) bundles the module graph correctly into a single IIFE, preserving per-module scope.
+
+- [ ] **Step 1: Add esbuild and write the failing test**
+
+Add `"esbuild": "^0.24.0"` to `devDependencies` in `package.json`, then `npm install`.
 
 `tests/sdk/build.test.js`:
 ```js
@@ -891,15 +896,22 @@ import { describe, expect, it } from 'vitest';
 const OUT = 'skills/moonforge-implement/assets/moonforge-sdk/moonforge.global.js';
 
 describe('global build', () => {
-  it('produces an import/export-free IIFE exposing the globals', () => {
+  it('produces an import/export-free bundle exposing working globals', () => {
     execFileSync('node', ['scripts/build-sdk.mjs'], { stdio: 'pipe' });
     const src = readFileSync(OUT, 'utf8');
-    expect(src).not.toMatch(/^\s*import\s/m);
-    expect(src).not.toMatch(/^\s*export\s/m);
-    expect(src).toContain('MoonForgeAnalytics');
-    expect(src).toContain('MoonForgeErrorTracker');
+    // No ES-module syntax survives in the bundle.
+    expect(src).not.toMatch(/^\s*import[\s{]/m);
+    expect(src).not.toMatch(/^\s*export[\s{]/m);
     expect(src).toContain('/api/send');
     expect(src).toContain('/api/errors');
+    // Executing the bundle attaches working globals (proves the bundle is valid).
+    delete globalThis.MoonForgeAnalytics;
+    delete globalThis.MoonForgeErrorTracker;
+    new Function(src)();
+    expect(typeof globalThis.MoonForgeAnalytics.init).toBe('function');
+    expect(typeof globalThis.MoonForgeAnalytics.trackEvent).toBe('function');
+    expect(typeof globalThis.MoonForgeErrorTracker.captureException).toBe('function');
+    expect(typeof globalThis.MoonForgeErrorTracker.setGameState).toBe('function');
   });
 });
 ```
@@ -912,52 +924,37 @@ Expected: FAIL — `scripts/build-sdk.mjs` missing.
 - [ ] **Step 3: Implement `scripts/build-sdk.mjs`**
 
 ```js
-// Concatenate the ES modules into a single IIFE global bundle for legacy <script> games.
-import { readFileSync, writeFileSync } from 'node:fs';
+// Bundle the ES-module SDK into a single browser IIFE for legacy <script> games.
+import { build } from 'esbuild';
 
 const DIR = 'skills/moonforge-implement/assets/moonforge-sdk';
-const ORDER = ['core.js', 'context.js', 'analytics.js', 'errors.js', 'index.js'];
 
-function strip(src) {
-  return src
-    .replace(/^\s*import[^\n]*\n/gm, '')                 // drop import lines
-    .replace(/^\s*export\s+(const|let|var|function|class)\s/gm, '$1 ') // export decl -> decl
-    .replace(/^\s*export\s*\{[^}]*\}\s*;?\s*$/gm, '')    // drop export {...}
-    .replace(/^\s*export\s+default\s+/gm, '');           // drop default (unused)
-}
+await build({
+  entryPoints: [`${DIR}/index.js`],
+  outfile: `${DIR}/moonforge.global.js`,
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  target: ['es2019'],
+  legalComments: 'none',
+  banner: { js: '/* MoonForge Web SDK — generated global bundle. Do not edit by hand. Regenerate with: npm run build:sdk */' },
+});
 
-const body = ORDER.map((f) => `// ---- ${f} ----\n${strip(readFileSync(`${DIR}/${f}`, 'utf8'))}`).join('\n\n');
-const out = `/* MoonForge Web SDK — generated global bundle. Do not edit by hand. */\n(function () {\n'use strict';\n${body}\n})();\n`;
-writeFileSync(`${DIR}/moonforge.global.js`, out);
-console.log('Wrote', `${DIR}/moonforge.global.js`);
+console.log(`Wrote ${DIR}/moonforge.global.js`);
 ```
 
-Note: all five modules use only module-local top-level names (no import aliases collide), so simple concatenation after stripping `import`/`export` keywords yields a valid single scope. Keep exported symbol names unique across modules (they already are: `init` exists only in `core.js`; `index.js` calls `core.init`/`analytics.*`/`errors.*` — after stripping, those are the same top-level functions in one scope). Because `index.js` references `analytics.trackEvent` etc. via `import * as analytics`, the build strips those imports; to keep the concatenation valid, `index.js` must reference the imported namespaces. Therefore the build also rewrites the known namespace prefixes to direct calls.
-
-Extend `strip` for `index.js` only, by adding this replacement before writing (append to the script after `const body = ...` is computed is too late; instead special-case in the map):
-
-Replace the `body` line with:
-```js
-const NS = { 'core.': '', 'analytics.': '', 'errors.': '', };
-function stripFile(f, src) {
-  let s = strip(src);
-  if (f === 'index.js') for (const [k, v] of Object.entries(NS)) s = s.split(k).join(v);
-  return s;
-}
-const body = ORDER.map((f) => `// ---- ${f} ----\n${stripFile(f, readFileSync(`${DIR}/${f}`, 'utf8'))}`).join('\n\n');
-```
-(Removing the `core.`/`analytics.`/`errors.` prefixes makes `index.js` call the now-in-scope top-level functions directly. `context.js` names — `setGameState`, etc. — are already imported by name in `index.js`, so their `import` line is stripped and the names resolve in-scope.)
+Add the script to `package.json` `scripts` if not present: `"build:sdk": "node scripts/build-sdk.mjs"`.
 
 - [ ] **Step 4: Run to verify pass**
 
 Run: `npm test -- tests/sdk/build.test.js`
-Expected: PASS.
+Expected: PASS — the bundle is import/export-free and, when evaluated, exposes `globalThis.MoonForgeAnalytics` / `MoonForgeErrorTracker`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/build-sdk.mjs skills/moonforge-implement/assets/moonforge-sdk/moonforge.global.js tests/sdk/build.test.js
-git commit -m "feat(sdk): add single-file global bundle build for legacy script tags"
+git add package.json package-lock.json scripts/build-sdk.mjs skills/moonforge-implement/assets/moonforge-sdk/moonforge.global.js tests/sdk/build.test.js
+git commit -m "feat(sdk): add esbuild-generated single-file global bundle for legacy script tags"
 ```
 
 ---
