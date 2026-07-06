@@ -7,6 +7,21 @@ import { setGameState, setGameStateData, getGameState, clearGameState } from './
 let sessionStartedAt = 0;
 let autoInstalled = false;
 
+const NETWORK_ERROR_STATUS_THRESHOLD = 400;
+
+/**
+ * Extracts a usable URL string from a fetch() first argument, which may be
+ * a plain string, a URL object, or a Request object.
+ * @param {string | URL | Request | undefined} input
+ * @returns {string}
+ */
+function requestUrl(input) {
+  if (typeof input === 'string') return input;
+  if (input && typeof input.href === 'string') return input.href; // URL object
+  if (input && typeof input.url === 'string') return input.url; // Request object
+  return '';
+}
+
 function startSession() {
   sessionStartedAt = Date.now();
   analytics.trackEvent('session_start', { session_id: core.getSessionId() });
@@ -35,16 +50,17 @@ function installAutoCapture() {
   });
 }
 
-function installFetchInterceptor(threshold = 400) {
+function installFetchInterceptor(threshold = NETWORK_ERROR_STATUS_THRESHOLD) {
   if (typeof globalThis.fetch !== 'function' || globalThis.__mfFetchWrapped) return;
   globalThis.__mfFetchWrapped = true;
   const orig = globalThis.fetch.bind(globalThis);
   globalThis.fetch = async (...args) => {
     const start = Date.now();
-    const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
-    const method = (args[1]?.method ?? 'GET').toUpperCase();
-    // Never intercept our own collector calls.
-    if (url && core.getConfig() && url.startsWith(core.getConfig().apiEndpoint)) return orig(...args);
+    const url = requestUrl(args[0]);
+    const method = (args[1]?.method ?? (typeof args[0] !== 'string' ? args[0]?.method : undefined) ?? 'GET').toUpperCase();
+    // Never intercept our own collector calls (also skips capture when the URL is unresolvable).
+    const cfg = core.getConfig();
+    if (!url || (cfg && url.startsWith(cfg.apiEndpoint))) return orig(...args);
     try {
       const res = await orig(...args);
       if (res.status >= threshold) errors.captureNetworkError(url, { method, statusCode: res.status, durationMs: Date.now() - start });

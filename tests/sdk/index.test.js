@@ -36,4 +36,22 @@ describe('index wiring', () => {
     expect(typeof sdk.MoonForgeErrorTracker.setGameState).toBe('function');
     expect(typeof sdk.MoonForgeErrorTracker.setGameStateData).toBe('function');
   });
+
+  it('fetch interceptor reads the URL from a URL object (not undefined)', async () => {
+    vi.resetModules();
+    const bodies = [];
+    const orig = vi.fn(async (input, init) => {
+      const u = typeof input === 'string' ? input : (input?.href ?? input?.url ?? String(input));
+      const isErrors = u.endsWith('/api/errors');
+      if (isErrors) bodies.push(JSON.parse(init.body));
+      return { ok: isErrors, status: isErrors ? 200 : 500, json: async () => ({}) };
+    });
+    vi.stubGlobal('fetch', orig);
+    const sdk = await import('../../skills/moonforge-implement/assets/moonforge-sdk/index.js');
+    sdk.MoonForgeAnalytics.init({ gameId: 'g-1', trackNetworkErrors: true });
+    await globalThis.fetch(new URL('https://api.game.example/data'));
+    await Promise.resolve(); await Promise.resolve();
+    expect(bodies.length).toBe(1);
+    expect(bodies[0].payload.networkRequest.url).toBe('https://api.game.example/data');
+  });
 });
