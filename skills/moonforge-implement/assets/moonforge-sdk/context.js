@@ -39,5 +39,7 @@ export function setGameState(next = {}) {
   };
 }
 export function setGameStateData(k, v) { gs.value = { ...gs.value, customData: { ...(gs.value.customData ?? {}), [k]: v } }; }
-export function getGameState() { return { ...gs.value }; }
+export function getGameState() {
+  return { ...gs.value, ...(gs.value.customData ? { customData: { ...gs.value.customData } } : {}) };
+}
 export function clearGameState() { gs.value = {}; }

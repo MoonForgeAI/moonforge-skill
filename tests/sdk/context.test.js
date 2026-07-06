@@ -22,4 +22,11 @@ describe('context', () => {
     vi.stubGlobal('navigator', { ...globalThis.navigator, connection: { type: 'wifi', effectiveType: '4g' } });
     expect(ctx.getNetworkContext()).toEqual({ type: 'wifi', effectiveType: '4g' });
   });
+
+  it('getGameState returns a copy that cannot mutate internal customData', () => {
+    ctx.setGameStateData('score', 1);
+    const snapshot = ctx.getGameState();
+    snapshot.customData.score = 999;
+    expect(ctx.getGameState().customData.score).toBe(1);
+  });
 });
