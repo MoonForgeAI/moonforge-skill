@@ -7,7 +7,7 @@ description: Use when instrumenting a Unity game with MoonForge analytics events
 
 ## Overview
 
-Interactive agent that guides Unity developers through analytics instrumentation. Analyzes the game, recommends events by priority tier, writes TrackEvent calls, and verifies everything works.
+Interactive agent that guides Unity and web game developers through analytics instrumentation. Analyzes the game, recommends events by priority tier, writes TrackEvent calls, and verifies everything works.
 
 ## When to Use
 
@@ -49,13 +49,19 @@ digraph moonforge {
 }
 ```
 
-### Step 1: Detect Project
+### Step 1: Detect Platform
 
-Look for Unity project markers in the current directory:
-- `Assets/` directory
-- `ProjectSettings/ProjectSettings.asset`
+Determine the `platform` for this project by checking the current directory:
+- **Unity** — `Assets/` directory and `ProjectSettings/ProjectSettings.asset` present.
+- **Web** — `package.json` with a game framework dependency (`phaser`, `pixi.js`,
+  `three`, `@babylonjs/core`, `playcanvas`, `kaboom`, `excalibur`, `matter-js`),
+  or an `index.html` referencing a game bundle / `<canvas>`.
+- **Unreal** — not yet supported; if Unreal markers (`.uproject`) are found, tell the
+  user this platform is planned but not currently supported.
+- Ambiguous (both Unity and Web markers present): ask the user which to instrument.
+- If no markers are found: ask the user for the project path and platform.
 
-If not found, ask the user for the Unity project path.
+Set `platform` to the detected value (`unity` or `web`) and pass it to every sub-skill invoked below.
 
 ### Step 2: Get Game ID
 
@@ -66,25 +72,25 @@ Priority order:
 
 ### Step 3: Analyze
 
-**REQUIRED SUB-SKILL:** Use moonforge-analyze
+**REQUIRED SUB-SKILL:** Use moonforge-analyze, passing `platform`
 
 Scan the project and present the game profile to the user.
 
 ### Step 4: Recommend Events
 
-**REQUIRED SUB-SKILL:** Use moonforge-events
+**REQUIRED SUB-SKILL:** Use moonforge-events, passing `platform`
 
 Present tiered event recommendations. Wait for user to select tiers.
 
 ### Step 5: Implement
 
-**REQUIRED SUB-SKILL:** Use moonforge-implement
+**REQUIRED SUB-SKILL:** Use moonforge-implement, passing `platform`
 
 For each event in selected tiers, find the right file and method, write the TrackEvent call, and show diff for approval.
 
 ### Step 6: Verify
 
-**REQUIRED SUB-SKILL:** Use moonforge-verify
+**REQUIRED SUB-SKILL:** Use moonforge-verify, passing `platform`
 
 Run compilation check, static analysis, and present event inventory.
 
