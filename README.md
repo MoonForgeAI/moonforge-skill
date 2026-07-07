@@ -1,10 +1,10 @@
 # MoonForge Skill for Claude Code
 
-An interactive Claude Code skill package that guides Unity developers through analytics instrumentation using the [MoonForge](https://moonforge.co) SDK.
+An interactive Claude Code skill package that guides Unity and web game developers through analytics instrumentation using the [MoonForge](https://moonforge.co) SDK.
 
 ## What It Does
 
-The MoonForge skill analyzes your Unity game, recommends analytics events by priority tier, writes `MoonForgeAnalytics.TrackEvent()` calls into your C# scripts, and verifies everything compiles and reaches the collector.
+The MoonForge skill analyzes your game, recommends analytics events by priority tier, and instruments tracking calls into your code. For Unity games, it writes `MoonForgeAnalytics.TrackEvent()` calls into C# scripts. For web games, it generates a local MoonForge Web SDK (with analytics and error tracking) and instruments `trackEvent` and error calls. It then verifies everything compiles and reaches the collector.
 
 ### Skills Included
 
@@ -15,6 +15,10 @@ The MoonForge skill analyzes your Unity game, recommends analytics events by pri
 | **Events** | `/moonforge:events` | Recommend events by priority tier (P0-P3) |
 | **Implement** | `/moonforge:implement` | Write TrackEvent calls into C# scripts |
 | **Verify** | `/moonforge:verify` | Check compilation and collector endpoint |
+
+### Web games
+
+For web games (Phaser, Babylon.js, Three.js, PlayCanvas, Kaboom, Excalibur, etc.), the skill follows the same analyze → events → implement → verify flow. The `/moonforge` skill generates a local MoonForge Web SDK, then instruments `trackEvent` and error calls into your JavaScript/TypeScript code. The generated SDK posts events to `https://collector.moonforge.co`.
 
 ## Installation
 

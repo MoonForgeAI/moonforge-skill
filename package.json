@@ -1,0 +1,14 @@
+{
+  "name": "moonforge-skill",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "build:sdk": "node scripts/build-sdk.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "jsdom": "^25.0.1",
+    "vitest": "^3.0.5"
+  }
+}
