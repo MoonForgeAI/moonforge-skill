@@ -28,6 +28,8 @@ Recommend analytics events organized by priority tier, tailored to the specific 
 
 The MoonForge SDK automatically tracks these when initialized (`MoonForgeAnalytics.Initialize()`):
 
+> Web games: see references/web-auto-tracked.md for what the Web SDK auto-tracks.
+
 **Analytics events (via TrackEvent):**
 - `session_start` — fires on init with `{ session_id }`
 - `session_end` — fires on shutdown with `{ session_id, duration_seconds }`
