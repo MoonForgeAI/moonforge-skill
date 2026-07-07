@@ -388,20 +388,27 @@
     if (input && typeof input.url === "string") return input.url;
     return "";
   }
-  function startSession() {
+  function beginSpan() {
+    if (globalThis.__mfSessionActive) return;
+    globalThis.__mfSessionActive = true;
     sessionStartedAt = Date.now();
     trackEvent("session_start", { session_id: getSessionId() });
+  }
+  function endSpan() {
+    if (!globalThis.__mfSessionActive) return;
+    globalThis.__mfSessionActive = false;
+    const duration_seconds = Math.round((Date.now() - sessionStartedAt) / 1e3);
+    trackEvent("session_end", { session_id: getSessionId(), duration_seconds }, { beacon: true });
+  }
+  function startSession() {
+    beginSpan();
     if (typeof globalThis.addEventListener === "function") {
-      const end = () => {
-        if (globalThis.__mfSessionEnded) return;
-        globalThis.__mfSessionEnded = true;
-        const duration_seconds = Math.round((Date.now() - sessionStartedAt) / 1e3);
-        trackEvent("session_end", { session_id: getSessionId(), duration_seconds }, { beacon: true });
-      };
-      globalThis.addEventListener("pagehide", end);
+      globalThis.addEventListener("pagehide", endSpan);
       globalThis.addEventListener("visibilitychange", () => {
         var _a;
-        if (((_a = globalThis.document) == null ? void 0 : _a.visibilityState) === "hidden") end();
+        const vis = (_a = globalThis.document) == null ? void 0 : _a.visibilityState;
+        if (vis === "hidden") endSpan();
+        else if (vis === "visible") beginSpan();
       });
     }
   }

@@ -22,18 +22,48 @@ function requestUrl(input) {
   return '';
 }
 
-function startSession() {
+/**
+ * Begins a new foreground session span. Idempotent: calling this while a
+ * span is already active is a no-op, so redundant 'visible' transitions
+ * (e.g. duplicate visibilitychange events) never emit duplicate starts.
+ */
+function beginSpan() {
+  if (globalThis.__mfSessionActive) return;
+  globalThis.__mfSessionActive = true;
   sessionStartedAt = Date.now();
   analytics.trackEvent('session_start', { session_id: core.getSessionId() });
+}
+
+/**
+ * Ends the current foreground session span and reports its duration via a
+ * beacon so the event survives page teardown. Idempotent: calling this when
+ * no span is active is a no-op, so 'hidden' followed by 'pagehide' (or any
+ * other repeated end trigger) never emits duplicate ends.
+ */
+function endSpan() {
+  if (!globalThis.__mfSessionActive) return;
+  globalThis.__mfSessionActive = false;
+  const duration_seconds = Math.round((Date.now() - sessionStartedAt) / 1000);
+  analytics.trackEvent('session_end', { session_id: core.getSessionId(), duration_seconds }, { beacon: true });
+}
+
+/**
+ * Wires up re-armable foreground session spans. Unlike a single session
+ * that ends permanently on the first tab-blur, this tracks each foreground
+ * span independently: a new 'session_start' fires whenever the tab becomes
+ * visible again, and a 'session_end' fires whenever it becomes hidden or
+ * the page is torn down, so total foreground duration stays accurate
+ * across repeated tab switches.
+ */
+function startSession() {
+  beginSpan();
   if (typeof globalThis.addEventListener === 'function') {
-    const end = () => {
-      if (globalThis.__mfSessionEnded) return;
-      globalThis.__mfSessionEnded = true;
-      const duration_seconds = Math.round((Date.now() - sessionStartedAt) / 1000);
-      analytics.trackEvent('session_end', { session_id: core.getSessionId(), duration_seconds }, { beacon: true });
-    };
-    globalThis.addEventListener('pagehide', end);
-    globalThis.addEventListener('visibilitychange', () => { if (globalThis.document?.visibilityState === 'hidden') end(); });
+    globalThis.addEventListener('pagehide', endSpan);
+    globalThis.addEventListener('visibilitychange', () => {
+      const vis = globalThis.document?.visibilityState;
+      if (vis === 'hidden') endSpan();
+      else if (vis === 'visible') beginSpan();
+    });
   }
 }
 

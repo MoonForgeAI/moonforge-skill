@@ -54,4 +54,24 @@ describe('index wiring', () => {
     expect(bodies.length).toBe(1);
     expect(bodies[0].payload.networkRequest.url).toBe('https://api.game.example/data');
   });
+
+  it('session_end re-arms: hidden fires end, returning visible re-starts, pagehide ends again', async () => {
+    vi.resetModules();
+    const bodies = [];
+    const f = vi.fn(async (_u, init) => { bodies.push(JSON.parse(init.body).payload.name); return { ok: true, status: 200, json: async () => ({}) }; });
+    vi.stubGlobal('fetch', f);
+    // jsdom visibilityState is 'visible' by default; make it controllable
+    let vis = 'visible';
+    Object.defineProperty(globalThis.document, 'visibilityState', { configurable: true, get: () => vis });
+    const sdk = await import('../../skills/moonforge-implement/assets/moonforge-sdk/index.js');
+    sdk.MoonForgeAnalytics.init({ gameId: 'g-1' });
+    await Promise.resolve();
+    vis = 'hidden'; globalThis.dispatchEvent(new Event('visibilitychange')); await Promise.resolve();
+    vis = 'visible'; globalThis.dispatchEvent(new Event('visibilitychange')); await Promise.resolve();
+    globalThis.dispatchEvent(new Event('pagehide')); await Promise.resolve();
+    const starts = bodies.filter((n) => n === 'session_start').length;
+    const ends = bodies.filter((n) => n === 'session_end').length;
+    expect(starts).toBe(2);   // init + re-visible
+    expect(ends).toBe(2);     // hidden + pagehide
+  });
 });

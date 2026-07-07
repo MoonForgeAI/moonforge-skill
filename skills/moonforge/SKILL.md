@@ -11,8 +11,8 @@ Interactive agent that guides Unity and web game developers through analytics in
 
 ## When to Use
 
-- User wants to add analytics events to their Unity game
-- User says "instrument my game" or "add analytics" for a Unity project
+- User wants to add analytics events to their Unity or web game
+- User says "instrument my game" or "add analytics" for a Unity or web project
 - Another agent receives a game ID and needs to add analytics
 
 ## Arguments
@@ -24,7 +24,7 @@ Interactive agent that guides Unity and web game developers through analytics in
 ```dot
 digraph moonforge {
     "Start" [shape=doublecircle];
-    "Detect Unity project" [shape=box];
+    "Detect platform" [shape=box];
     "Get game ID" [shape=box];
     "game_id provided?" [shape=diamond];
     "Use provided game_id" [shape=box];
@@ -35,8 +35,8 @@ digraph moonforge {
     "moonforge-verify" [shape=box, style=bold];
     "Done" [shape=doublecircle];
 
-    "Start" -> "Detect Unity project";
-    "Detect Unity project" -> "game_id provided?";
+    "Start" -> "Detect platform";
+    "Detect platform" -> "game_id provided?";
     "game_id provided?" -> "Use provided game_id" [label="yes"];
     "game_id provided?" -> "Get game ID" [label="no"];
     "Use provided game_id" -> "moonforge-analyze";
