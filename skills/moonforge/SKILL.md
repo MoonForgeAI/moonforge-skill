@@ -1,6 +1,6 @@
 ---
 name: moonforge
-description: Use when instrumenting a Unity game with MoonForge analytics events — analyzes the game, recommends events by priority, implements TrackEvent calls, and verifies the setup
+description: Use when instrumenting a Unity or web game with MoonForge analytics and error events — analyzes the game, recommends events, implements tracking calls, and verifies the setup
 ---
 
 # MoonForge Analytics Instrumentation
