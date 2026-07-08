@@ -29,6 +29,9 @@ describe('core', () => {
     expect(f).toHaveProperty('screen'); expect(f).toHaveProperty('language');
     expect(f).toHaveProperty('hostname'); expect(typeof f.timestamp).toBe('number');
     expect(f.id).toBe(core.getDistinctId());
+    // Collector's analytics pipeline 500s on millisecond timestamps — must be unix SECONDS.
+    expect(f.timestamp).toBeLessThan(1e11);
+    expect(f.timestamp).toBeGreaterThan(1e9);
   });
 
   it('postEvent uses fetch(keepalive), captures + replays the cache token', async () => {

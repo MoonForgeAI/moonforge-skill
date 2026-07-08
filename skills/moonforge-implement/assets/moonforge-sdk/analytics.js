@@ -1,7 +1,7 @@
 // MoonForge Web SDK — analytics pipeline (POST /api/send).
 import {
   isReady, getConfig, collectAutoFields, postEvent, getDistinctId, getSessionId,
-  setDistinctId, getUserProps, setUserProp, removeUserProp, clearUserProps, resetAll,
+  setDistinctId, getUserProps, setUserProp, removeUserProp, clearUserProps, resetAll, unixSeconds,
 } from './core.js';
 
 function ensure() {
@@ -21,7 +21,7 @@ export function trackScreenView(name) {
 export function identify(userId, traits = {}) {
   if (!ensure()) return undefined;
   if (userId) setDistinctId(userId);
-  return postEvent({ type: 'identify', payload: { game: getConfig().gameId, id: userId ?? getDistinctId(), data: traits, timestamp: Date.now() } });
+  return postEvent({ type: 'identify', payload: { game: getConfig().gameId, id: userId ?? getDistinctId(), data: traits, timestamp: unixSeconds() } });
 }
 export function setUserProperty(k, v) { setUserProp(k, v); }
 export function removeUserProperty(k) { removeUserProp(k); }

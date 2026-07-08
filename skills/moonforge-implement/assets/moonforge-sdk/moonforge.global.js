@@ -33,6 +33,9 @@
     } catch {
     }
   }
+  function unixSeconds() {
+    return Math.floor(Date.now() / 1e3);
+  }
   function init(options = {}) {
     var _a, _b, _c, _d, _e, _f;
     if (!options.gameId) {
@@ -125,7 +128,7 @@
       screen: scr.width && scr.height ? `${scr.width}x${scr.height}` : "",
       language: (_j = nav.language) != null ? _j : "",
       hostname: (_k = loc.hostname) != null ? _k : "",
-      timestamp: Date.now()
+      timestamp: unixSeconds()
     };
   }
   async function postEvent(payload, { beacon = false } = {}) {
@@ -200,7 +203,7 @@
   function identify(userId, traits = {}) {
     if (!ensure()) return void 0;
     if (userId) setDistinctId(userId);
-    return postEvent({ type: "identify", payload: { game: getConfig().gameId, id: userId != null ? userId : getDistinctId(), data: traits, timestamp: Date.now() } });
+    return postEvent({ type: "identify", payload: { game: getConfig().gameId, id: userId != null ? userId : getDistinctId(), data: traits, timestamp: unixSeconds() } });
   }
   function setUserProperty(k, v) {
     setUserProp(k, v);
@@ -332,7 +335,7 @@
       appVersion: cfg.appVersion,
       buildNumber: cfg.buildNumber,
       sessionId: getSessionId(),
-      timestamp: Date.now(),
+      timestamp: unixSeconds(),
       breadcrumbs: getBreadcrumbs(),
       tags: { ...(_b = (_a = store.user) == null ? void 0 : _a.tags) != null ? _b : {}, ...stringTags(extraTags) }
     };

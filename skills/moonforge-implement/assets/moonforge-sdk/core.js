@@ -22,6 +22,9 @@ function uuid() {
 function lget(k) { try { return globalThis.localStorage?.getItem(k) ?? null; } catch { return null; } }
 function lset(k, v) { try { globalThis.localStorage?.setItem(k, v); } catch { /* ignore */ } }
 
+/** Unix timestamp in SECONDS — the collector's analytics pipeline rejects milliseconds. */
+export function unixSeconds() { return Math.floor(Date.now() / 1000); }
+
 export function init(options = {}) {
   if (!options.gameId) { console.warn('[MoonForge] init: gameId is required; SDK disabled.'); state.config = null; return undefined; }
   state.config = {
@@ -69,7 +72,7 @@ export function collectAutoFields() {
     url: `${loc.pathname ?? ''}${loc.hash ?? ''}`, title: doc.title ?? '',
     referrer: doc.referrer ?? '',
     screen: scr.width && scr.height ? `${scr.width}x${scr.height}` : '',
-    language: nav.language ?? '', hostname: loc.hostname ?? '', timestamp: Date.now(),
+    language: nav.language ?? '', hostname: loc.hostname ?? '', timestamp: unixSeconds(),
   };
 }
 

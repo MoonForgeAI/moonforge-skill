@@ -1,5 +1,5 @@
 // MoonForge Web SDK — error pipeline (POST /api/errors).
-import { isReady, postError, getConfig, getSessionId, BreadcrumbType, BreadcrumbLevel, ErrorLevel } from './core.js';
+import { isReady, postError, getConfig, getSessionId, unixSeconds, BreadcrumbType, BreadcrumbLevel, ErrorLevel } from './core.js';
 import { getDeviceContext, getNetworkContext, getGameState } from './context.js';
 
 const MAX_BREADCRUMBS = 50;
@@ -38,7 +38,7 @@ function baseEnvelope(errorType, errorCategory, errorLevel, extraTags) {
     game: cfg.gameId, errorType, errorCategory, errorLevel,
     device: getDeviceContext(),
     appVersion: cfg.appVersion, buildNumber: cfg.buildNumber,
-    sessionId: getSessionId(), timestamp: Date.now(),
+    sessionId: getSessionId(), timestamp: unixSeconds(),
     breadcrumbs: getBreadcrumbs(),
     tags: { ...(store.user?.tags ?? {}), ...stringTags(extraTags) },
   };
