@@ -11,10 +11,10 @@ find . -path ./node_modules -prune -o -type d -name "moonforge" -print
 find . -path ./node_modules -prune -o -type f -name "moonforge*.js" -print
 
 # Init wiring, imports, script tags
-grep -rn "MoonForgeAnalytics.init\|from ['\"].*moonforge\|import.*MoonForge" --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" --include="*.html" . | grep -v node_modules
+grep -rn "MoonForgeAnalytics.init\|from ['\"].*moonforge\|import.*MoonForge" --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" --include="*.html" . | grep -vE 'node_modules|/dist/|/build/|/\.next/'
 
 # Every call site (analytics + errors)
-grep -rn "MoonForgeAnalytics\.\|MoonForgeErrorTracker\." --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" --include="*.html" . | grep -v node_modules
+grep -rn "MoonForgeAnalytics\.\|MoonForgeErrorTracker\." --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" --include="*.html" . | grep -vE 'node_modules|/dist/|/build/|/\.next/'
 
 # Config
 ls .moonforge.json 2>/dev/null
@@ -47,7 +47,7 @@ results that are assigned or passed onward).
 
 ```bash
 # Zero references (report any hits with file:line)
-grep -rn -i "moonforge" --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" --include="*.html" --include="*.json" . | grep -v node_modules
+grep -rn -i "moonforge" --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" --include="*.html" --include="*.json" . | grep -vE 'node_modules|/dist/|/build/|/\.next/'
 
 # Build still passes — use what the project has, in this order:
 npm run build          # if a build script exists
