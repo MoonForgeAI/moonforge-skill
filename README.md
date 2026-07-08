@@ -15,10 +15,18 @@ The MoonForge skill analyzes your game, recommends analytics events by priority 
 | **Events** | `/moonforge:events` | Recommend events by priority tier (P0-P3) |
 | **Implement** | `/moonforge:implement` | Write TrackEvent calls into C# scripts |
 | **Verify** | `/moonforge:verify` | Check compilation and collector endpoint |
+| **Uninstall** | `/moonforge-uninstall` | Remove all MoonForge code from a game (SDK, calls, config), optional server deregistration |
 
 ### Web games
 
 For web games (Phaser, Babylon.js, Three.js, PlayCanvas, Kaboom, Excalibur, etc.), the skill follows the same analyze → events → implement → verify flow. The `/moonforge` skill generates a local MoonForge Web SDK, then instruments `trackEvent` and error calls into your JavaScript/TypeScript code. The generated SDK posts events to `https://collector.moonforge.co`.
+
+### Uninstalling
+
+`/moonforge-uninstall` reverses `/moonforge`: it inventories every MoonForge file
+and tracking call in the project, removes them with reviewable diffs (git-safe),
+optionally deregisters the game from your MoonForge account, and verifies the
+game still builds. Already-collected analytics data is retained server-side.
 
 ## Installation
 
