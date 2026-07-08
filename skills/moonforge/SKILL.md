@@ -102,6 +102,7 @@ Run compilation check, static analysis, and present event inventory.
 | moonforge-events | Recommend events by tier | `/moonforge:events` |
 | moonforge-implement | Write TrackEvent calls | `/moonforge:implement` |
 | moonforge-verify | Check build + collector | `/moonforge:verify` |
+| moonforge-uninstall | Remove all MoonForge instrumentation | `/moonforge-uninstall` |
 
 ## Full SDK API Reference
 
