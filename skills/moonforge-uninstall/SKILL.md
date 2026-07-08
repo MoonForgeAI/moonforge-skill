@@ -90,12 +90,12 @@ Only offer if a `gameId` is known. Requires BOTH:
    MoonForge dashboard, or run the curl below with a token).
 
 ```bash
-curl -X DELETE "https://moonforge.co/api/games/<GAME_ID>" \
+curl -X DELETE "https://game.moonforge.co/api/games/<GAME_ID>" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
 **Be explicit with the user:** this deregisters the game from the account and
-dashboard. **raw events already collected are retained** in the analytics store —
+dashboard. **Raw events already collected are retained** in the analytics store —
 purging them is a separate owner-side operation this skill does not perform.
 
 ## Verify (always the last step)
