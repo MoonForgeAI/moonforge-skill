@@ -42,6 +42,16 @@ describe('core', () => {
     expect(fetchMock.mock.calls[1][1].headers['x-moonforge-cache']).toBe('tok_abc');
   });
 
+  it('falls back to fetch when sendBeacon returns false', async () => {
+    const fetchMock = mockFetchOk();
+    const beacon = vi.fn(() => false); // e.g. beacon queue full
+    vi.stubGlobal('navigator', { ...globalThis.navigator, sendBeacon: beacon });
+    const ok = await core.postEvent({ type: 'event', payload: { game: 'g-1', name: 'session_end' } }, { beacon: true });
+    expect(beacon).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // soft failure -> fetch fallback
+    expect(ok).toBe(true);
+  });
+
   it('postEvent uses sendBeacon when beacon:true', async () => {
     const beacon = vi.fn(() => true);
     vi.stubGlobal('navigator', { ...globalThis.navigator, sendBeacon: beacon });

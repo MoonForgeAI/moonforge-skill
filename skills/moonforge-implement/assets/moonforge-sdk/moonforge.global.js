@@ -140,7 +140,7 @@
       try {
         const ok = globalThis.navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
         debugLog("beacon", payload.type, ok);
-        return ok;
+        if (ok) return true;
       } catch (e) {
         debugLog("beacon failed", e);
       }
@@ -403,17 +403,18 @@
     const duration_seconds = Math.round((Date.now() - sessionStartedAt) / 1e3);
     trackEvent("session_end", { session_id: getSessionId(), duration_seconds }, { beacon: true });
   }
+  var sessionListenersInstalled = false;
   function startSession() {
     beginSpan();
-    if (typeof globalThis.addEventListener === "function") {
-      globalThis.addEventListener("pagehide", endSpan);
-      globalThis.addEventListener("visibilitychange", () => {
-        var _a;
-        const vis = (_a = globalThis.document) == null ? void 0 : _a.visibilityState;
-        if (vis === "hidden") endSpan();
-        else if (vis === "visible") beginSpan();
-      });
-    }
+    if (sessionListenersInstalled || typeof globalThis.addEventListener !== "function") return;
+    sessionListenersInstalled = true;
+    globalThis.addEventListener("pagehide", endSpan);
+    globalThis.addEventListener("visibilitychange", () => {
+      var _a;
+      const vis = (_a = globalThis.document) == null ? void 0 : _a.visibilityState;
+      if (vis === "hidden") endSpan();
+      else if (vis === "visible") beginSpan();
+    });
   }
   function installAutoCapture() {
     if (autoInstalled || typeof globalThis.addEventListener !== "function") return;
