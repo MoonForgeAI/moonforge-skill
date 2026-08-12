@@ -122,6 +122,10 @@ export const MoonForgeAnalytics = {
   getSessionId: analytics.getSessionId,
   reset: analytics.reset,
   flush: analytics.flush,
+  // Exposed so a host app can release buffered events on a path that does not
+  // call identify, and so tests can reset buffering between cases.
+  markIdentified: core.markIdentified,
+  resetBuffering: core.resetBuffering,
 };
 
 export const MoonForgeErrorTracker = {
