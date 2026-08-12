@@ -17,10 +17,13 @@ export function trackScreenView(name) {
 }
 export function identify(userId, traits = {}) {
   if (!ensure()) return undefined;
-  if (userId) setDistinctId(userId);
-  // Releases anything emitted before the player was known - session_start
-  // above all - rewritten to this id rather than the anonymous one.
-  markIdentified();
+  // Both are gated on a real userId. Marking identified without one would
+  // flush the buffer under the anonymous id, which is exactly what buffering
+  // exists to avoid.
+  if (userId) {
+    setDistinctId(userId);
+    markIdentified();
+  }
   return postEvent({ type: 'identify', payload: { game: getConfig().gameId, id: userId ?? getDistinctId(), data: traits, timestamp: unixSeconds() } });
 }
 export function setUserProperty(k, v) { setUserProp(k, v); }

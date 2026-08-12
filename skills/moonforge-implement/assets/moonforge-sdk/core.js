@@ -62,7 +62,13 @@ export function getUserProps() { return { ...state.userProps }; }
 export function setUserProp(k, v) { state.userProps = { ...state.userProps, [k]: v }; }
 export function removeUserProp(k) { const n = { ...state.userProps }; delete n[k]; state.userProps = n; }
 export function clearUserProps() { state.userProps = {}; }
-export function resetAll() { state.userProps = {}; state.cacheToken = null; setDistinctId(uuid()); resetSession(); }
+export function resetAll() {
+  state.userProps = {}; state.cacheToken = null; setDistinctId(uuid()); resetSession();
+  // A reset is a logout: the next player is anonymous again, so buffering must
+  // re-arm. Leaving `identified` set would send their pre-identify events
+  // straight out under the freshly generated anonymous id.
+  resetBuffering();
+}
 
 export function collectAutoFields() {
   const loc = globalThis.location ?? {}; const doc = globalThis.document ?? {};
@@ -137,12 +143,17 @@ export async function postEvent(payload, { beacon = false } = {}) {
   const bufferable = !identified && !beacon && payload && payload.type !== 'identify';
 
   if (bufferable) {
-    if (pendingEvents.length < MAX_BUFFERED_EVENTS) {
-      pendingEvents.push({ payload, opts: { beacon } });
-    } else {
-      debugLog('buffer full, sending anonymously', payload.type);
+    if (pendingEvents.length >= MAX_BUFFERED_EVENTS) {
+      // Identification is not coming soon enough. Drain what is queued first,
+      // then send this one - delivering the newest immediately while older
+      // events stayed buffered would reorder the stream and split it across
+      // two identities.
+      debugLog('buffer full, flushing anonymously', payload.type);
+      sendBuffered();
       return deliver(payload, { beacon });
     }
+
+    pendingEvents.push({ payload, opts: { beacon } });
     if (!flushTimer && typeof setTimeout === 'function') {
       flushTimer = setTimeout(() => {
         debugLog('identify grace expired, flushing anonymously');
