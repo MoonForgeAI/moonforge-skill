@@ -1,8 +1,5 @@
 // MoonForge Web SDK — analytics pipeline (POST /api/send).
-import {
-  isReady, getConfig, collectAutoFields, postEvent, getDistinctId, getSessionId,
-  setDistinctId, getUserProps, setUserProp, removeUserProp, clearUserProps, resetAll, unixSeconds,
-} from './core.js';
+import { clearUserProps, collectAutoFields, getConfig, getDistinctId, getSessionId, getUserProps, isReady, markIdentified, postEvent, removeUserProp, resetAll, setDistinctId, setUserProp, unixSeconds } from './core.js';
 
 function ensure() {
   if (!isReady()) { console.warn('[MoonForge] call MoonForgeAnalytics.init() before tracking.'); return false; }
@@ -21,6 +18,9 @@ export function trackScreenView(name) {
 export function identify(userId, traits = {}) {
   if (!ensure()) return undefined;
   if (userId) setDistinctId(userId);
+  // Releases anything emitted before the player was known - session_start
+  // above all - rewritten to this id rather than the anonymous one.
+  markIdentified();
   return postEvent({ type: 'identify', payload: { game: getConfig().gameId, id: userId ?? getDistinctId(), data: traits, timestamp: unixSeconds() } });
 }
 export function setUserProperty(k, v) { setUserProp(k, v); }
