@@ -1,7 +1,7 @@
 ---
 name: moonforge
 description: Use when instrumenting a game of any engine with MoonForge analytics and error events — analyzes the game, recommends events, implements tracking calls, and verifies the setup. Unity and web have prebuilt SDKs; every other engine is instrumented over plain HTTP
-version: 1.0.0
+version: 1.1.0
 ---
 
 # MoonForge Analytics Instrumentation
@@ -14,7 +14,8 @@ writes the tracking calls, and verifies everything works.
 
 MoonForge's collector is a plain HTTP endpoint. Anything that can send an HTTP
 POST can be instrumented — Unity and web simply ship a prebuilt SDK, and every
-other engine gets a small hand-written client instead. There is no engine this
+other engine gets an SDK generated into the project in its own language, with
+the same session handling, identity and buffering. There is no engine this
 skill has to turn away.
 
 ## When to Use
@@ -67,8 +68,9 @@ Determine the `platform` for this project by checking the current directory:
 - **Anything else** — `generic`. Unreal (`.uproject`), Godot (`project.godot`),
   LÖVE (`main.lua`), Bevy/Rust (`Cargo.toml`), MonoGame, a custom engine, or a
   game server all take this path. Do NOT tell the user their engine is
-  unsupported — it is not. They get hand-written HTTP calls instead of an SDK,
-  which is the same wire format and the same data.
+  unsupported — it is not. `moonforge-implement` generates a full SDK for their
+  engine, in their language, with the same capabilities as the prebuilt Unity
+  and web ones.
 - Ambiguous (both Unity and Web markers present): ask the user which to instrument.
 - If nothing at all is recognisable: ask the user for the project path and which
   language the game is written in, then proceed as `generic`.
@@ -260,9 +262,10 @@ enum BreadcrumbLevel { Debug, Info, Warning, Error, Fatal }
 
 ## Auto-Tracked (P0) — No Code Needed
 
-Applies to the Unity and web SDKs. On the `generic` path nothing is automatic —
-the generic reference shows how to emit `session_start` / `session_end` by hand,
-because that is the difference between having an SDK and not.
+Applies to every platform. On Unity and web the SDK ships prebuilt; on the
+`generic` path `moonforge-implement` generates an equivalent SDK into the
+project in the game's own language, with the same session lifecycle. Either
+way the user instruments P1 and up, never P0.
 
 The SDK automatically tracks when initialized:
 - `session_start` — on init with `{ session_id }`

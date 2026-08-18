@@ -1,24 +1,31 @@
-# Any Engine — P0 is NOT Auto-Tracked
+# Any Engine — Auto-Tracked (P0), No Instrumentation Needed
 
-On Unity and web, P0 session events come free with the SDK. On the generic path
-there is no SDK, so **nothing is automatic**. P0 is implementation work here,
-not a freebie — and it is the highest-value work, because session counts,
-playtime, and retention all derive from it.
+P0 is auto-tracked here just as it is on Unity and web. The difference is only
+where the SDK comes from: on those platforms it ships prebuilt, and here
+`/moonforge:implement` generates it into the project in the game's own language.
 
-Present P0 to the user as required implementation rather than "already handled":
+Once that generated SDK's `init()` runs, it auto-tracks:
 
-- `session_start` — emit once at boot with `{ session_id }` (a UUID generated
-  per launch).
-- `session_end` — emit at shutdown with `{ session_id, duration_seconds }`.
-- `screen_view` — emit on each scene/screen change with `{ screen_name }`.
+- `session_start` — on init, with `{ session_id }`.
+- `session_end` — on the engine's quit hook, with
+  `{ session_id, duration_seconds }`.
+- `session_start` (re-engagement) — after the inactivity timeout (default
+  1800s), carrying `{ session_id, previous_session_id }`.
+- `screen_view` — via `track_screen_view(name)`, wired to the engine's scene or
+  screen change where one exists.
 
-`session_end` is the one that gets dropped. It has to fire on the engine's quit
-notification (Godot `NOTIFICATION_WM_CLOSE_REQUEST`, Unreal
-`FCoreDelegates::OnPreExit`), and a hard crash or force-quit will still lose it.
-Say this plainly rather than implying session data will be complete — sessions
-without an end are normal on this path and downstream analysis has to tolerate
-them.
+So present P0 to the user the same way as on any other platform: **no manual
+instrumentation, it comes with the SDK.** Recommendations should start at P1.
 
-Error tracking is likewise manual: there is no global exception hook unless one
-is written. If the user wants errors, that is a separate deliberate piece of
-work, not a checkbox.
+Two honest caveats worth stating once, not dwelling on:
+
+- **`session_end` depends on a quit hook.** A hard crash or force-quit can still
+  lose it, on every platform. Sessions without an end are normal and downstream
+  analysis tolerates them.
+- **Error capture is opt-in.** The generated SDK hooks the engine's global error
+  handler only if the engine exposes one and the user wants it. Confirm rather
+  than assuming — unlike sessions, this is a genuine choice.
+
+If the generated SDK does *not* implement session lifecycle, that is a defect in
+the generation step, not a platform limitation. See the parity table in
+`moonforge-implement/references/generic.md` §2.

@@ -1,23 +1,35 @@
 # MoonForge Verify — Any Engine
 
-There is no SDK and no compiler contract to lean on here, so verification is
-mostly about proving events actually arrive.
+The SDK here was generated rather than installed, so verification covers both
+the module that was written and the calls into it.
 
-## 1. Static checks
+## 1. Verify the generated SDK against the parity contract
 
-- One client module exists and every call site goes through it — not scattered
-  `http` calls. Grep for the endpoint string; more than one hit outside the
-  client module is a finding.
+Check it implements every row of the table in
+`moonforge-implement/references/generic.md` §2. Missing capabilities are the
+main risk on this path — a generated SDK that only does `track_event` looks
+finished and silently loses sessions and identity.
+
+- `init` is idempotent — a second call must not start a second session.
+- **Session lifecycle**: `session_start` on init, `session_end` on a quit hook,
+  re-engagement after the inactivity timeout. Grep for the engine's quit
+  notification; if it is absent, `session_end` is never sent.
+- **Pre-identify buffering**: events before `identify` are held and rewritten to
+  the real id. Absent, everything before login is stranded anonymously.
+- **Persistent distinct id**: written to disk and reloaded, not regenerated per
+  launch.
 - `game` is a valid **UUID**, matching `.moonforge.json`.
-- `timestamp` is unix **seconds**. Grep the client for `* 1000`, `millis`,
-  `MilliSeconds`, `get_ticks_msec` — any of these means the timestamp is
-  ~1000× too large and the events land tens of thousands of years in the future,
-  where no dashboard query will ever return them.
+- `timestamp` is unix **seconds**. Grep for `* 1000`, `millis`, `MilliSeconds`,
+  `get_ticks_msec` — any of these is ~1000× too large and puts events tens of
+  thousands of years in the future.
 - A User-Agent is set, unless the engine is Unity/Unreal/Godot (§3).
-- The client swallows transport errors and cannot throw into game code.
-- A timeout is set on the request.
-- `session_start` and `session_end` are both emitted — `session_end` is the one
-  that gets forgotten, since it needs a quit handler.
+- Transport errors are swallowed and cannot throw into game code.
+- A request timeout is set.
+
+## 1b. Call sites
+
+Every call goes through the SDK module — grep for the endpoint string; more than
+one hit outside the module is a finding.
 
 ## 2. Compile / run the project
 
@@ -50,7 +62,13 @@ curl -s -o /dev/null -w "%{http_code}" -X POST \
 Expect `200`/`202`. This proves the endpoint and the game id — it does **not**
 prove the game's own client works, because curl is not the game.
 
-## 5. Prove the real client sends
+## 5. Run the SDK's own tests
+
+If `/moonforge:implement` generated tests, run them and report the result. If it
+did not, say so — an untested generated SDK is a fair outcome to report, but not
+one to leave implied.
+
+## 6. Prove the real client sends
 
 The only check that counts. Pick whichever is available:
 
@@ -63,10 +81,11 @@ The only check that counts. Pick whichever is available:
   once, and remove it.
 
 State plainly which of these was done. "The code looks right" is not
-verification, and on this path it is the easiest place to fool yourself.
+verification, and on this path — where you wrote the SDK as well as the calls —
+it is the easiest place to fool yourself.
 
-## 6. Present the event inventory
+## 7. Present the event inventory
 
 List each event, its trigger site, and its properties. Flag any event that is
 emitted from more than one place — duplicate emission is the most common defect
-in hand-written instrumentation.
+in generated instrumentation.

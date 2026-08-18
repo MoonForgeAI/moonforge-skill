@@ -1,7 +1,7 @@
 ---
 name: moonforge-implement
 description: Use when writing MoonForge tracking calls into a game's source based on selected event recommendations — the Unity/web SDK call, or a hand-written HTTP client on any other engine
-version: 1.0.0
+version: 1.1.0
 ---
 
 # MoonForge Implement
