@@ -1,5 +1,24 @@
 # MoonForge Verify — Unity
 
+## 0. The SDK must be in the project
+
+Before anything else, confirm the SDK is actually there — `Assets/MoonForge/`
+(generated), a `com.moonforge.*` entry in `Packages/manifest.json`, or an
+existing install. If tracking calls exist and the SDK does not, that is the
+finding: the project does not compile and the instrumentation is inert. Report
+it as a failure, not as "compilation failed for an unrelated reason".
+
+Then check the generated SDK against `moonforge-implement/references/sdk-contract.md`:
+idempotent `init`, session lifecycle (`Application.quitting` **and**
+`OnApplicationPause` on mobile), persistent distinct id in `PlayerPrefs`,
+pre-identify buffering, unix-second timestamps, swallowed transport errors.
+An SDK implementing only `TrackEvent` looks finished while losing sessions and
+identity.
+
+Confirm `MoonForgeSettings` exists in a `Resources/` folder **and carries the
+game id**. An SDK with no game id is inert, and this is the step most often
+skipped.
+
 ## Verification Steps
 
 ### 1. Compilation Check

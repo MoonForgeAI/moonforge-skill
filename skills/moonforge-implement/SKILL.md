@@ -1,7 +1,7 @@
 ---
 name: moonforge-implement
-description: Use when writing MoonForge tracking calls into a game's source based on selected event recommendations — the Unity/web SDK call, or a hand-written HTTP client on any other engine
-version: 1.1.0
+description: Use when putting the MoonForge SDK into a game and writing tracking calls against it — copies the bundled SDK on web, generates one on Unity and every other engine, then instruments the selected events
+version: 1.2.0
 ---
 
 # MoonForge Implement
@@ -26,10 +26,18 @@ Write `MoonForgeAnalytics.TrackEvent()` calls into the correct locations in Unit
    - **Any other engine** — `generic`. Godot, Unreal, LÖVE, Bevy, MonoGame, a
      custom C++ engine, or a game server all qualify. MoonForge's collector is a
      plain HTTP endpoint, so anything that can send an HTTP POST is supported.
-     Unity and Web are not the supported set — they are the two with a prebuilt
-     SDK that saves writing the transport by hand.
+     Every platform ends up with an SDK inside the project: web copies the
+     bundled one, Unity and everything else have one generated.
    - Ambiguous (both Unity and Web markers present): ask the user which to instrument.
-2. Load and follow the matching reference for the rest of this skill:
-   - Unity → `references/unity.md`
-   - Web → `references/web.md`
-   - Generic → `references/generic.md`
+2. Read `references/sdk-contract.md`. It applies to every platform: the SDK goes
+   into the project BEFORE any tracking call is written, and it must implement
+   the full capability list — session lifecycle, pre-identify buffering,
+   persistent identity — not just `track_event`.
+
+   Never instrument against an SDK that is not in the project. Doing so leaves
+   the user with code that does not compile and a job half done.
+
+3. Load and follow the matching reference for the rest of this skill:
+   - Unity → `references/unity.md` (generates C# into `Assets/MoonForge/`)
+   - Web → `references/web.md` (copies the bundled SDK in)
+   - Generic → `references/generic.md` (generates in the project's language)

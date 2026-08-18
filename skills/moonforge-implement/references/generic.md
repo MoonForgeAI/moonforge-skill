@@ -22,98 +22,18 @@ the project's conventions — `moonforge.gd`, `MoonForgeSDK.cpp/.h`,
 It must implement all of §2. Anything you leave out becomes a silent gap in the
 game's data that nobody discovers for months.
 
-## 2. Required feature parity
+## 2. What it must do, and what it sends
 
-This is the contract. The Unity and web SDKs provide all of it; a generated SDK
-that provides less is not finished.
+Both live in `sdk-contract.md` — the required capabilities, the wire protocol,
+and the User-Agent trap. Read it now; it is the same contract the bundled web
+SDK satisfies, and a generated SDK that implements less will silently lose
+sessions and identity while looking finished.
 
-| Capability | Behaviour |
-|---|---|
-| `init(game_id, opts)` | Stores config, loads/creates the distinct id, starts the session. Idempotent — a second call is a no-op, not a second session. |
-| `track_event(name, data)` | Fire-and-forget event. Never blocks, never throws. |
-| `track_screen_view(name)` | Emits `screen_view` with `{ screen_name }`. |
-| `identify(user_id, traits)` | Sets the distinct id, emits `identify`, releases the pre-identify buffer (below). |
-| `set_user_property(k, v)` | Persistent property merged into every later event's `data`. |
-| **Session lifecycle** | `session_start` on init; `session_end` on quit with `{ session_id, duration_seconds }`; a new session after an inactivity timeout (default 1800s), carrying `previous_session_id`. |
-| **Pre-identify buffering** | Events emitted before `identify` are held (cap 50) and rewritten to the real id when it arrives. Without this, everything before login is stranded under an anonymous id — which is what made two thirds of one real game's players look like single-day visitors. Flush anonymously after ~10s if identify never comes, rather than losing them. |
-| **Persistent distinct id** | Generated once, stored on disk, reused forever. |
-| **Transport** | Background thread/task, 2–5s timeout, browser-shaped User-Agent (§4), all errors swallowed. |
-| `flush()` | Best-effort send of anything pending, for use before quit. |
-| **Error capture** (optional) | If the engine exposes a global handler, hook it and POST to `/api/errors`. Offer it; do not assume it. |
+Nothing on this path is exempt. "It is only a small engine" is not a reason to
+skip pre-identify buffering or session lifecycle — those are precisely what
+separate usable data from a pile of anonymous events.
 
-Session and identity handling are the whole reason this is a module and not a
-snippet. Get those right and the rest is plumbing.
-
-## 3. The wire protocol
-
-`POST https://collector.moonforge.co/api/send`, `Content-Type: application/json`.
-
-### Event
-```json
-{
-  "type": "event",
-  "payload": {
-    "game": "<GAME_UUID>",
-    "id": "<distinct-id>",
-    "name": "level_complete",
-    "data": { "level": 3, "duration_seconds": 91 },
-    "timestamp": 1755381234
-  }
-}
-```
-
-### Identify
-```json
-{
-  "type": "identify",
-  "payload": {
-    "game": "<GAME_UUID>",
-    "id": "<user-id>",
-    "data": { "plan": "premium" },
-    "timestamp": 1755381234
-  }
-}
-```
-
-| Field | Rule |
-|---|---|
-| `game` | Must be a valid **UUID** — schema-validated, and rejected silently otherwise. |
-| `id` | Stable per player across sessions. |
-| `name` | `snake_case`. Every distinct name is a separate series; keep the vocabulary small. |
-| `data` | Flat. Strings, numbers, booleans — no nested objects or arrays. |
-| `timestamp` | Unix **SECONDS**. Milliseconds put events ~55,000 years in the future, where no query will ever return them. |
-
-Optional, safe to omit: `url`, `title`, `referrer`, `screen` (`"1920x1080"`),
-`language`, `hostname`.
-
-## 4. The User-Agent trap
-
-The collector runs a bot filter and **discards flagged traffic while still
-returning HTTP 200**. A dropped event is indistinguishable from an accepted one.
-Most HTTP clients default to a User-Agent that trips it.
-
-Measured against the collector's actual `isbot` version:
-
-| User-Agent | Result |
-|---|---|
-| `Godot/4.2`, `UnrealEngine/5.3` | **Passes** — allowlisted before the filter |
-| `curl/8.7.1`, `node`, `python-requests/2.31` | **Dropped** |
-| `MyGame/1.4` | **Dropped** |
-| `Mozilla/5.0 (compatible; MyGame/1.4)` | **Dropped** — `compatible;` is itself a bot signature |
-| `Mozilla/5.0 MyGame/1.4` | Passes |
-| A full realistic browser UA | Passes |
-
-If the engine's own UA contains `UnityPlayer`, `UnrealEngine` or `Godot`, leave
-it alone. Otherwise set:
-
-```
-Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
-```
-
-Do not invent a shorter "polite" variant — the honest-looking ones are exactly
-the ones that get dropped.
-
-## 5. Wire it up
+## 3. Wire it up
 
 - **Register the module** so it initialises once at boot: a Godot autoload, an
   Unreal `GameInstance` subsystem, a `require` at the entry point.
@@ -126,21 +46,14 @@ the ones that get dropped.
 Then instrument the selected events, one diff per change with approval, exactly
 as on the other platforms.
 
-## 6. Test what you generated
+## 4. Test what you generated
 
-You wrote this SDK, so it is yours to prove — do not hand the user an untested
-module. Whatever the language offers:
+Per `sdk-contract.md` — envelope shape, pre-identify buffering, and that a
+transport failure cannot reach game code. If the project has no test framework
+and the user does not want one, say the SDK is untested rather than implying it
+was verified.
 
-- A unit test that `track_event` produces the exact envelope in §3, including
-  unix-second timestamps.
-- A test that events before `identify` are buffered and rewritten to the real
-  id afterwards.
-- A test that a transport failure cannot propagate into game code.
-
-If the project has no test framework and the user does not want one added, say
-plainly that the SDK is untested rather than implying it was verified.
-
-## 7. Write `.moonforge.json`
+## 5. Write `.moonforge.json`
 
 ```json
 { "gameId": "<GAME_UUID>", "gameName": "<name>", "platform": "generic", "sdkConfigured": true }

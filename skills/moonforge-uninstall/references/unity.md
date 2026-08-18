@@ -1,5 +1,11 @@
 # MoonForge Uninstall — Unity
 
+The SDK may have been **generated** into `Assets/MoonForge/` rather than
+installed as a package. Inventory both: a generated folder (plus its `.asmdef`
+and any generated tests) and a `com.moonforge.*` entry in
+`Packages/manifest.json`. Remove whichever is present, along with the
+`MoonForgeSettings` asset in `Resources/`.
+
 ## 1. Discover the footprint (read-only)
 
 Run these from the Unity project root (never scan `Library/`, `Temp/`, `.git/`):
