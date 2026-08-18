@@ -41,8 +41,9 @@ Grep, in the project's language, for:
 - **Progression** — `level`, `wave`, `stage`, `xp`, `unlock`.
 - **Economy** — `coin`, `gold`, `currency`, `shop`, `purchase`, `iap`.
 - **Session boundaries** — quit handlers, pause, `NOTIFICATION_WM_CLOSE_REQUEST`,
-  `OnPreExit`. Note these specifically: on this path `session_end` must be
-  emitted by hand, and this is where it goes.
+  `OnPreExit`. Note these specifically: the generated SDK registers its
+  `session_end` hook here, so knowing whether the engine exposes one — and
+  whether the project already uses it — decides how that gets wired.
 - **Save/load** — where a persistent player id can live.
 
 ## 4. Check for existing analytics
@@ -59,9 +60,13 @@ instrumented by this path before.
 Same format as the other platforms — Game ID, Genre, Screens/flow, Core Systems,
 Existing Analytics, SDK Status — with two additions that matter downstream:
 
-- **Language** — determines what the generic client is written in.
+- **Language and idiom** — the generated SDK is written in it, so note the
+  language, its test framework (if any), and where the project keeps source.
 - **Player identity** — does the game have accounts, or does it need a generated
-  persistent id? This decides whether identify is in scope.
+  persistent id? This decides whether `identify` and pre-identify buffering are
+  in scope.
+- **Quit hook** — which notification the engine exposes for shutdown. The
+  generated SDK needs it for `session_end`.
 
 ## Common mistakes
 

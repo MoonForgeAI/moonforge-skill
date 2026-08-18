@@ -1,6 +1,6 @@
 # MoonForge Skill for Claude Code
 
-**Version 1.0.0**
+**Version 1.1.0**
 
 An interactive Claude Code skill package that instruments any game with
 [MoonForge](https://moonforge.co) analytics and error tracking — whatever engine
@@ -19,11 +19,11 @@ anything that can send an HTTP POST can be instrumented:
 |---|---|
 | **Unity** | `MoonForgeAnalytics.TrackEvent()` calls against the C# SDK |
 | **Web** (Phaser, Three.js, Babylon, PlayCanvas, Kaboom, …) | A generated local JS SDK, plus `trackEvent` and error calls |
-| **Anything else** — Godot, Unreal, LÖVE, Bevy, MonoGame, a custom C++ engine, a game server | A small hand-written HTTP client in your language, plus the calls |
+| **Anything else** — Godot, Unreal, LÖVE, Bevy, MonoGame, a custom C++ engine, a game server | A full SDK generated into your project in your language, plus the calls |
 
 Unity and web are not the supported set — they are the two that ship a prebuilt
-SDK. Every other engine gets the same wire format and the same data through a
-client the skill writes for you, typically 30–60 lines.
+SDK. For every other engine the skill generates one, with the same session
+handling, identity and buffering the prebuilt SDKs have.
 
 ### Skills Included
 
@@ -42,16 +42,22 @@ For web games (Phaser, Babylon.js, Three.js, PlayCanvas, Kaboom, Excalibur, etc.
 
 ### Every other engine
 
-Same flow. Instead of installing an SDK, the skill writes a small client that
-speaks the collector's wire protocol directly, then instruments calls through
-it. Two differences worth knowing up front:
+Same flow, same result. Rather than installing a prebuilt SDK, the skill
+**generates one into your project in your own language** — Godot GDScript,
+Unreal C++, Rust, Lua, C#, whatever the game is written in — then instruments
+your events through it.
 
-- **Session events are not automatic.** `session_start` and `session_end` come
-  free with the Unity and web SDKs; here they are implemented explicitly.
-- **The User-Agent matters.** The collector drops traffic its bot filter flags
-  while still returning HTTP 200, so a misconfigured client fails silently.
-  Unity, Unreal, and Godot clients are allowlisted automatically; anything else
-  must send a browser-shaped User-Agent. The skill handles this and verifies it.
+The generated SDK is held to the same feature parity as the prebuilt ones:
+session lifecycle (start, end, inactivity re-engagement), a persistent player
+id, `identify` with pre-identify event buffering, user properties, screen views,
+and a fire-and-forget transport that can never throw into your game loop. So
+P0 session events are automatic here too — you instrument P1 and up.
+
+One thing the skill handles that is easy to get wrong by hand: the collector
+drops traffic its bot filter flags **while still returning HTTP 200**, so a
+misconfigured client fails invisibly. Unity, Unreal and Godot are allowlisted;
+anything else needs a browser-shaped User-Agent. The generated SDK sets it and
+`/moonforge:verify` checks it.
 
 ### Uninstalling
 
@@ -129,7 +135,7 @@ If you already know your game ID (useful when another agent is doing the work):
 
 | Tier | What | Examples |
 |------|------|---------|
-| **P0** | Session health (auto on Unity/web; manual elsewhere) | session_start, session_end, scene changes |
+| **P0** | Session health (auto-tracked by the SDK on every platform) | session_start, session_end, scene changes |
 | **P1** | Core loop events | level_completed, player_died, game_over |
 | **P2** | Engagement events | tutorial_step, achievement_unlocked, settings_changed |
 | **P3** | Advanced analytics | ad_impression, iap_completed, ab_variant_assigned |

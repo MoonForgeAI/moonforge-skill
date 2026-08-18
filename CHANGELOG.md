@@ -6,6 +6,36 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.1.0] — 2026-08-17
+
+### Changed
+
+- **The generic path now generates a real SDK, not a snippet.** 1.0.0 gave the
+  user the wire protocol, one example, and a list of things to remember —
+  sessions, identity and buffering were left as manual work. That was the wrong
+  shape: the web path already generates a local SDK into the project, and the
+  coding agent can do exactly the same in any language.
+
+  `moonforge-implement` now generates a full SDK module for the target engine,
+  held to an explicit parity contract with the prebuilt Unity and web SDKs:
+  idempotent `init`, session lifecycle (start, end on the engine's quit hook,
+  re-engagement after inactivity), persistent distinct id, `identify` with
+  pre-identify event buffering, user properties, screen views, fire-and-forget
+  transport, and `flush`. It is also asked to generate tests for what it wrote.
+
+- **P0 is auto-tracked on every platform.** 1.0.0 told users that session events
+  were manual on the generic path and had to be instrumented by hand. With a
+  generated SDK they are not — P0 comes with the SDK everywhere, and
+  recommendations start at P1. Corrected in the events reference, the
+  orchestrator, and the README.
+
+- `moonforge-verify` checks the generated SDK against the parity contract rather
+  than just inspecting call sites, since an SDK that only implements
+  `track_event` looks finished while silently losing sessions and identity.
+
+- `moonforge-analyze` now records the language's test framework and the engine's
+  quit hook, both of which the generation step needs.
+
 ## [1.0.0] — 2026-08-17
 
 First versioned release. Earlier copies carry no version at all; if

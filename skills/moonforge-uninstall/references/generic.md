@@ -1,14 +1,16 @@
 # MoonForge Uninstall — Any Engine
 
-Nothing was installed as a package here, so there is no dependency to remove.
-What exists is a hand-written client module plus the call sites that use it.
+Nothing was installed as a package here — the SDK was generated into the project.
+What exists is that generated module plus the call sites that use it, so removal
+is deleting both rather than uninstalling a dependency.
 
 ## 1. Inventory before removing anything
 
 Present the full list to the user and get approval before the first deletion.
 
-- **The client module** — grep for `collector.moonforge.co`. The file containing
-  it is the client (`moonforge.gd`, `MoonForgeClient.cpp`, `moonforge.py`, …).
+- **The generated SDK module** — grep for `collector.moonforge.co`. The file
+  containing it is the SDK (`moonforge.gd`, `MoonForgeSDK.cpp/.h`,
+  `moonforge.lua`, …). Include any tests generated alongside it.
 - **Call sites** — grep for the client's function names (`track`,
   `track_event`, `MoonForge::Track`) and for `moonforge` case-insensitively.
 - **Registration** — how the client is wired in: a Godot autoload in
@@ -16,9 +18,10 @@ Present the full list to the user and get approval before the first deletion.
   global singleton set up at boot.
 - **Config** — `.moonforge.json`, plus any `MOONFORGE_*` entries in `.env`,
   CI config, or build scripts.
-- **Session hooks** — the quit handler added for `session_end`. If the handler
-  existed before instrumentation, remove only the MoonForge line; if it was
-  added solely for this, remove the handler.
+- **Session hooks** — the quit handler the SDK registered for `session_end`, and
+  any scene-change hook used for `screen_view`. If the handler existed before
+  instrumentation, remove only the MoonForge line; if it was added solely for
+  this, remove the handler.
 
 ## 2. Remove, with a diff per file
 
