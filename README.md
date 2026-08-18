@@ -1,25 +1,57 @@
 # MoonForge Skill for Claude Code
 
-An interactive Claude Code skill package that guides Unity and web game developers through analytics instrumentation using the [MoonForge](https://moonforge.co) SDK.
+**Version 1.0.0**
+
+An interactive Claude Code skill package that instruments any game with
+[MoonForge](https://moonforge.co) analytics and error tracking — whatever engine
+it runs on.
 
 ## What It Does
 
-The MoonForge skill analyzes your game, recommends analytics events by priority tier, and instruments tracking calls into your code. For Unity games, it writes `MoonForgeAnalytics.TrackEvent()` calls into C# scripts. For web games, it generates a local MoonForge Web SDK (with analytics and error tracking) and instruments `trackEvent` and error calls. It then verifies everything compiles and reaches the collector.
+The skill analyzes your game, recommends analytics events by priority tier,
+instruments the tracking calls, and verifies they compile and reach the
+collector.
+
+**Any engine works.** MoonForge's collector is a plain HTTP endpoint, so
+anything that can send an HTTP POST can be instrumented:
+
+| Your project | What the skill writes |
+|---|---|
+| **Unity** | `MoonForgeAnalytics.TrackEvent()` calls against the C# SDK |
+| **Web** (Phaser, Three.js, Babylon, PlayCanvas, Kaboom, …) | A generated local JS SDK, plus `trackEvent` and error calls |
+| **Anything else** — Godot, Unreal, LÖVE, Bevy, MonoGame, a custom C++ engine, a game server | A small hand-written HTTP client in your language, plus the calls |
+
+Unity and web are not the supported set — they are the two that ship a prebuilt
+SDK. Every other engine gets the same wire format and the same data through a
+client the skill writes for you, typically 30–60 lines.
 
 ### Skills Included
 
 | Skill | Command | Purpose |
 |-------|---------|---------|
 | **Orchestrator** | `/moonforge` | Full guided flow: analyze → events → implement → verify |
-| **Analyze** | `/moonforge:analyze` | Scan Unity project structure, scenes, and scripts |
+| **Analyze** | `/moonforge:analyze` | Scan project structure, scenes, and scripts |
 | **Events** | `/moonforge:events` | Recommend events by priority tier (P0-P3) |
-| **Implement** | `/moonforge:implement` | Write TrackEvent calls into C# scripts |
+| **Implement** | `/moonforge:implement` | Write the tracking calls into your source |
 | **Verify** | `/moonforge:verify` | Check compilation and collector endpoint |
 | **Uninstall** | `/moonforge-uninstall` | Remove all MoonForge code from a game (SDK, calls, config), optional server deregistration |
 
 ### Web games
 
 For web games (Phaser, Babylon.js, Three.js, PlayCanvas, Kaboom, Excalibur, etc.), the skill follows the same analyze → events → implement → verify flow. The `/moonforge` skill generates a local MoonForge Web SDK, then instruments `trackEvent` and error calls into your JavaScript/TypeScript code. The generated SDK posts events to `https://collector.moonforge.co`.
+
+### Every other engine
+
+Same flow. Instead of installing an SDK, the skill writes a small client that
+speaks the collector's wire protocol directly, then instruments calls through
+it. Two differences worth knowing up front:
+
+- **Session events are not automatic.** `session_start` and `session_end` come
+  free with the Unity and web SDKs; here they are implemented explicitly.
+- **The User-Agent matters.** The collector drops traffic its bot filter flags
+  while still returning HTTP 200, so a misconfigured client fails silently.
+  Unity, Unreal, and Godot clients are allowlisted automatically; anything else
+  must send a browser-shaped User-Agent. The skill handles this and verifies it.
 
 ### Uninstalling
 
@@ -53,25 +85,25 @@ git clone https://github.com/MoonForgeAI/moonforge-skill.git /tmp/moonforge-skil
 ### Uninstall
 
 ```bash
-rm -rf ~/.claude/skills/moonforge ~/.claude/skills/moonforge-analyze ~/.claude/skills/moonforge-events ~/.claude/skills/moonforge-implement ~/.claude/skills/moonforge-verify
+rm -rf ~/.claude/skills/moonforge ~/.claude/skills/moonforge-analyze ~/.claude/skills/moonforge-events ~/.claude/skills/moonforge-implement ~/.claude/skills/moonforge-verify ~/.claude/skills/moonforge-uninstall
 ```
 
 ## Usage
 
 ### Full Guided Flow
 
-Open Claude Code in your Unity project directory and run:
+Open Claude Code in your game's directory and run:
 
 ```
 /moonforge
 ```
 
 The skill will:
-1. Detect your Unity project and ask for your MoonForge game ID (or read it from `.moonforge.json` if present)
+1. Detect your engine and ask for your MoonForge game ID (or read it from `.moonforge.json` if present)
 2. Scan your game to understand its structure
 3. Recommend events organized by priority (P0 = auto-tracked, P1 = core loop, P2 = engagement, P3 = advanced)
 4. Let you pick which tiers to implement
-5. Write the actual TrackEvent calls into your C# scripts (with diff approval)
+5. Write the actual tracking calls into your source (with diff approval)
 6. Verify compilation and event delivery
 
 No prerequisites — the skill asks you for everything it needs.
@@ -97,12 +129,16 @@ If you already know your game ID (useful when another agent is doing the work):
 
 | Tier | What | Examples |
 |------|------|---------|
-| **P0** | Session health (auto-tracked by SDK) | session_start, session_end, scene changes |
+| **P0** | Session health (auto on Unity/web; manual elsewhere) | session_start, session_end, scene changes |
 | **P1** | Core loop events | level_completed, player_died, game_over |
 | **P2** | Engagement events | tutorial_step, achievement_unlocked, settings_changed |
 | **P3** | Advanced analytics | ad_impression, iap_completed, ab_variant_assigned |
 
-## SDK API Reference
+## SDK API Reference (Unity)
+
+For web, see `skills/moonforge-implement/references/web.md`. For any other engine,
+see `skills/moonforge-implement/references/generic.md`, which documents the wire
+protocol these SDKs speak.
 
 ### Analytics
 
@@ -171,13 +207,33 @@ yield return NetworkErrorInterceptor.Instance.SendTrackedRequest(request, "api_f
 ```
 moonforge-skill/
 ├── README.md
+├── CHANGELOG.md
 ├── skills/
 │   ├── moonforge/SKILL.md                # Orchestrator entry point (/moonforge)
 │   ├── moonforge-analyze/SKILL.md        # Project scanner
 │   ├── moonforge-events/SKILL.md         # Event recommender
 │   ├── moonforge-implement/SKILL.md      # Code writer
-│   └── moonforge-verify/SKILL.md         # Verification
+│   ├── moonforge-verify/SKILL.md         # Verification
+│   └── moonforge-uninstall/SKILL.md      # Removal
 ```
+
+Each skill carries `references/unity.md`, `references/web.md`, and
+`references/generic.md` — the per-platform detail for that step.
+
+## Versioning
+
+Every `SKILL.md` declares a `version:` in its frontmatter, matching the
+`version` in `package.json` and the release tag. To check what you have
+installed:
+
+```bash
+grep -h "^version:" ~/.claude/skills/moonforge/SKILL.md
+```
+
+If that prints nothing, you are on a pre-1.0.0 copy from before versioning
+existed — reinstall with the one-line command above.
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed between versions.
 
 ## License
 

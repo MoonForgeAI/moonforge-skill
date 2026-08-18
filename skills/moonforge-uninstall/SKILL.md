@@ -1,6 +1,7 @@
 ---
 name: moonforge-uninstall
-description: Use when removing MoonForge analytics and error tracking from a Unity or web game — inventories every SDK file and tracking call, removes them with reviewable diffs, optionally deregisters the game server-side, and verifies the game still builds
+description: Use when removing MoonForge analytics and error tracking from a game on any engine — inventories every SDK file and tracking call, removes them with reviewable diffs, optionally deregisters the game server-side, and verifies the game still builds
+version: 1.0.0
 ---
 
 # MoonForge Uninstall
@@ -56,11 +57,14 @@ digraph uninstall {
    - **Web** — `package.json` with a game framework dependency (`phaser`, `pixi.js`,
      `three`, `@babylonjs/core`, `playcanvas`, `kaboom`, `excalibur`, `matter-js`),
      or an `index.html` referencing a game bundle / `<canvas>`.
-   - **Unreal** — not supported (no install support yet, so nothing to uninstall).
-   - Ambiguous (both present): ask the user which to uninstall from.
+   - **Any other engine** — `generic`. Instrumentation written by the generic
+     path is hand-written HTTP calls rather than an SDK, so removal is finding
+     and deleting those calls plus the helper module they go through.
+   - Ambiguous (both Unity and Web markers present): ask the user which to uninstall from.
 2. Read `.moonforge.json` (if present) to capture `gameId`/`gameName` for the
    optional server step — BEFORE it gets deleted.
 3. Load and follow the matching reference for the rest of this skill:
+   - Generic → `references/generic.md`
    - Unity → `references/unity.md`
    - Web → `references/web.md`
 

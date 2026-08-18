@@ -1,18 +1,26 @@
 ---
 name: moonforge
-description: Use when instrumenting a Unity or web game with MoonForge analytics and error events — analyzes the game, recommends events, implements tracking calls, and verifies the setup
+description: Use when instrumenting a game of any engine with MoonForge analytics and error events — analyzes the game, recommends events, implements tracking calls, and verifies the setup. Unity and web have prebuilt SDKs; every other engine is instrumented over plain HTTP
+version: 1.0.0
 ---
 
 # MoonForge Analytics Instrumentation
 
 ## Overview
 
-Interactive agent that guides Unity and web game developers through analytics instrumentation. Analyzes the game, recommends events by priority tier, writes TrackEvent calls, and verifies everything works.
+Interactive agent that guides game developers through analytics instrumentation,
+whatever engine they use. Analyzes the game, recommends events by priority tier,
+writes the tracking calls, and verifies everything works.
+
+MoonForge's collector is a plain HTTP endpoint. Anything that can send an HTTP
+POST can be instrumented — Unity and web simply ship a prebuilt SDK, and every
+other engine gets a small hand-written client instead. There is no engine this
+skill has to turn away.
 
 ## When to Use
 
-- User wants to add analytics events to their Unity or web game
-- User says "instrument my game" or "add analytics" for a Unity or web project
+- User wants to add analytics events to their game, on any engine
+- User says "instrument my game" or "add analytics" for any game project
 - Another agent receives a game ID and needs to add analytics
 
 ## Arguments
@@ -56,12 +64,16 @@ Determine the `platform` for this project by checking the current directory:
 - **Web** — `package.json` with a game framework dependency (`phaser`, `pixi.js`,
   `three`, `@babylonjs/core`, `playcanvas`, `kaboom`, `excalibur`, `matter-js`),
   or an `index.html` referencing a game bundle / `<canvas>`.
-- **Unreal** — not yet supported; if Unreal markers (`.uproject`) are found, tell the
-  user this platform is planned but not currently supported.
+- **Anything else** — `generic`. Unreal (`.uproject`), Godot (`project.godot`),
+  LÖVE (`main.lua`), Bevy/Rust (`Cargo.toml`), MonoGame, a custom engine, or a
+  game server all take this path. Do NOT tell the user their engine is
+  unsupported — it is not. They get hand-written HTTP calls instead of an SDK,
+  which is the same wire format and the same data.
 - Ambiguous (both Unity and Web markers present): ask the user which to instrument.
-- If no markers are found: ask the user for the project path and platform.
+- If nothing at all is recognisable: ask the user for the project path and which
+  language the game is written in, then proceed as `generic`.
 
-Set `platform` to the detected value (`unity` or `web`) and pass it to every sub-skill invoked below.
+Set `platform` to `unity`, `web`, or `generic` and pass it to every sub-skill below.
 
 ### Step 2: Get Game ID
 
@@ -69,6 +81,22 @@ Priority order:
 1. Passed as argument to this skill
 2. Read from `.moonforge.json` if present in project root
 3. Ask the user for their MoonForge game ID
+
+If the user does not have one, do not stall — tell them exactly where to get it:
+
+> Sign in at https://game.moonforge.co, create a game if you have not already,
+> and copy its game ID from the game's settings. It is a UUID that looks like
+> `550e8400-e29b-41d4-a716-446655440000`.
+
+Validate what they give you: it must be a UUID. A non-UUID game id is the single
+most common reason instrumentation appears to work and no data ever arrives —
+the collector validates the field against a schema and rejects the event, and
+returns a success status while doing it. Do not proceed with a value that is not
+a UUID.
+
+If the user wants to explore the flow before signing up, offer to run
+`/moonforge:analyze` and `/moonforge:events` — both work fully without a game
+ID. Only implement and verify need one.
 
 ### Step 3: Analyze
 
@@ -104,7 +132,12 @@ Run compilation check, static analysis, and present event inventory.
 | moonforge-verify | Check build + collector | `/moonforge:verify` |
 | moonforge-uninstall | Remove all MoonForge instrumentation | `/moonforge-uninstall` |
 
-## Full SDK API Reference
+## Full SDK API Reference — Unity (C#)
+
+This section is the **Unity** SDK surface. For web, see the JS SDK API in
+`moonforge-implement/references/web.md`. For any other engine, see
+`moonforge-implement/references/generic.md`, which documents the wire protocol
+these SDKs speak so it can be reimplemented in any language.
 
 Namespace: `MoonForge.ErrorTracking.Analytics`
 
@@ -226,6 +259,10 @@ enum BreadcrumbLevel { Debug, Info, Warning, Error, Fatal }
 | addBreadcrumbsForAllRequests | bool | false | Breadcrumb every request, not just errors |
 
 ## Auto-Tracked (P0) — No Code Needed
+
+Applies to the Unity and web SDKs. On the `generic` path nothing is automatic —
+the generic reference shows how to emit `session_start` / `session_end` by hand,
+because that is the difference between having an SDK and not.
 
 The SDK automatically tracks when initialized:
 - `session_start` — on init with `{ session_id }`

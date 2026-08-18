@@ -1,6 +1,7 @@
 ---
 name: moonforge-events
-description: Use when recommending analytics events for a Unity game, organizing them by priority tier (P0-P3) based on game profile analysis
+description: Use when recommending analytics events for a game on any engine, organizing them by priority tier (P0-P3) based on game profile analysis
+version: 1.0.0
 ---
 
 # MoonForge Events
@@ -12,14 +13,14 @@ Recommend analytics events organized by priority tier, tailored to the specific 
 ## When to Use
 
 - After moonforge-analyze has produced a game profile
-- When user wants event recommendations for their Unity game
+- When user wants event recommendations for their game, on any engine
 - When `/moonforge` orchestrator calls this as second step
 
 ## Priority Tiers
 
 | Tier | Purpose | Instrumentation |
 |------|---------|--------------------|
-| P0 | Session health | Auto-tracked by SDK — no code needed |
+| P0 | Session health | Auto-tracked by the Unity and web SDKs; **manual on every other engine** |
 | P1 | Core loop | Must implement — essential for retention |
 | P2 | Engagement depth | Should implement — reveals behavior patterns |
 | P3 | Advanced analytics | Optional — for mature games with specific questions |
@@ -29,6 +30,10 @@ Recommend analytics events organized by priority tier, tailored to the specific 
 The MoonForge SDK automatically tracks these when initialized (`MoonForgeAnalytics.Initialize()`):
 
 > Web games: see references/web-auto-tracked.md for what the Web SDK auto-tracks.
+>
+> **Any other engine: see references/generic-auto-tracked.md. Nothing is
+> auto-tracked there — P0 is real implementation work, and presenting it as
+> already handled will leave the game with no session data at all.**
 
 **Analytics events (via TrackEvent):**
 - `session_start` — fires on init with `{ session_id }`

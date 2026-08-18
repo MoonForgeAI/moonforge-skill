@@ -80,6 +80,13 @@ Present as summary table:
 
 ### 4. Collector Endpoint Check (Optional)
 
+
+**A 200 does not mean the event was stored.** The collector runs a bot filter on
+the User-Agent and discards flagged traffic while still answering 200 — and
+`curl`'s default User-Agent is flagged. Without the `-A` below, this check
+reports success on an event that was thrown away. Verifying the wrong thing is
+worse than not verifying.
+
 If the user can run the game in Unity Editor:
 
 1. Ask user to enable Debug Mode in MoonForgeSettings asset
@@ -88,7 +95,9 @@ If the user can run the game in Unity Editor:
 4. Verify collector is reachable:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}" https://collector.moonforge.co/api/send
+curl -s -o /dev/null -w "%{http_code}" \
+  -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' \
+  https://collector.moonforge.co/api/send
 ```
 
 **Collector rate limits (for reference):**
