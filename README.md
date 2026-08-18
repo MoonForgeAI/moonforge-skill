@@ -1,6 +1,6 @@
 # MoonForge Skill for Claude Code
 
-**Version 1.1.0**
+**Version 1.2.0**
 
 An interactive Claude Code skill package that instruments any game with
 [MoonForge](https://moonforge.co) analytics and error tracking — whatever engine
@@ -17,13 +17,14 @@ anything that can send an HTTP POST can be instrumented:
 
 | Your project | What the skill writes |
 |---|---|
-| **Unity** | `MoonForgeAnalytics.TrackEvent()` calls against the C# SDK |
+| **Unity** | A C# SDK generated into `Assets/MoonForge/`, plus `TrackEvent()` calls |
 | **Web** (Phaser, Three.js, Babylon, PlayCanvas, Kaboom, …) | A generated local JS SDK, plus `trackEvent` and error calls |
 | **Anything else** — Godot, Unreal, LÖVE, Bevy, MonoGame, a custom C++ engine, a game server | A full SDK generated into your project in your language, plus the calls |
 
-Unity and web are not the supported set — they are the two that ship a prebuilt
-SDK. For every other engine the skill generates one, with the same session
-handling, identity and buffering the prebuilt SDKs have.
+**Nothing has to be installed first.** Every project ends up with an SDK inside
+it — web copies the one bundled with the skill, Unity and every other engine get
+one generated in their own language, all meeting the same contract. The skill
+never writes a tracking call against an SDK that is not in the project.
 
 ### Skills Included
 
@@ -42,12 +43,12 @@ For web games (Phaser, Babylon.js, Three.js, PlayCanvas, Kaboom, Excalibur, etc.
 
 ### Every other engine
 
-Same flow, same result. Rather than installing a prebuilt SDK, the skill
-**generates one into your project in your own language** — Godot GDScript,
+Same flow, same result. The skill **generates an SDK into your project in your
+own language** — Godot GDScript,
 Unreal C++, Rust, Lua, C#, whatever the game is written in — then instruments
 your events through it.
 
-The generated SDK is held to the same feature parity as the prebuilt ones:
+The generated SDK is held to an explicit contract:
 session lifecycle (start, end, inactivity re-engagement), a persistent player
 id, `identify` with pre-identify event buffering, user properties, screen views,
 and a fire-and-forget transport that can never throw into your game loop. So

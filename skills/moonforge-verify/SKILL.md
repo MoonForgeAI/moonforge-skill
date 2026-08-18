@@ -1,7 +1,7 @@
 ---
 name: moonforge-verify
 description: Use when verifying that MoonForge analytics instrumentation compiles correctly and events reach the collector endpoint
-version: 1.1.0
+version: 1.2.0
 ---
 
 # MoonForge Verify
@@ -26,8 +26,8 @@ Verify that instrumented analytics events compile without errors and (optionally
    - **Any other engine** — `generic`. Godot, Unreal, LÖVE, Bevy, MonoGame, a
      custom C++ engine, or a game server all qualify. MoonForge's collector is a
      plain HTTP endpoint, so anything that can send an HTTP POST is supported.
-     Unity and Web are not the supported set — they are the two with a prebuilt
-     SDK that saves writing the transport by hand.
+     Every platform ends up with an SDK inside the project: web copies the
+     bundled one, Unity and everything else have one generated.
    - Ambiguous (both Unity and Web markers present): ask the user which to instrument.
 2. Load and follow the matching reference for the rest of this skill:
    - Unity → `references/unity.md`

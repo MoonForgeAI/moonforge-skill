@@ -6,6 +6,45 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.2.0] — 2026-08-18
+
+### Fixed
+
+- **Unity no longer instruments against an SDK that is not there.** The Unity
+  reference had no install step at all — it wrote `MoonForgeAnalytics.TrackEvent()`
+  calls against a namespace nothing ever put in the project. A real run ended
+  with a project that would not compile and the user asked to go install a
+  package, having been offered "code-only instrumentation" as though that were
+  a mode anyone wants. It silently depended on `moon analytics init` having been
+  run first, or on a UPM package the user could reach — neither true for someone
+  who just installs the skill and runs `/moonforge`.
+
+  Unity now generates a C# SDK into `Assets/MoonForge/` before writing a single
+  call, with the Unity specifics spelled out: assembly definition, a
+  `RuntimeInitializeOnLoadMethod` runner under `DontDestroyOnLoad`,
+  `UnityWebRequest` transport with a timeout, `PlayerPrefs` for the distinct id,
+  `Application.quitting` **plus** `OnApplicationPause` for `session_end` on
+  mobile, and a `MoonForgeSettings` asset created with the game id written in.
+
+### Added
+
+- `moonforge-implement/references/sdk-contract.md` — one shared contract all
+  three platforms meet, holding the required capabilities, the wire protocol and
+  the User-Agent trap. Unity, web and generic now defer to it instead of
+  restating it three times and drifting.
+- The rule is stated where it will be read, in the implement skill itself:
+  **never write a tracking call against an SDK that is not in the project.**
+
+### Changed
+
+- `moonforge-verify` checks the SDK is present before anything else, and reports
+  its absence as the finding rather than as an unrelated compile failure. It
+  also checks `MoonForgeSettings` carries the game id — an SDK without one is
+  inert.
+- `moonforge-uninstall` inventories a generated `Assets/MoonForge/` as well as a
+  `com.moonforge.*` package entry.
+- Documentation no longer describes Unity as shipping a prebuilt SDK.
+
 ## [1.1.0] — 2026-08-17
 
 ### Changed

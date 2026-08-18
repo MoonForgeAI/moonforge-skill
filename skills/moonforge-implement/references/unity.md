@@ -1,6 +1,59 @@
 # MoonForge Implement — Unity
 
+## 0. Put the SDK in the project FIRST
+
+**Read `sdk-contract.md` before anything else. Do not write a single
+`TrackEvent` call until the SDK exists in the project.**
+
+Instrumenting first produces exactly one outcome: code that references
+`MoonForge.ErrorTracking.Analytics`, a project that will not compile, and a
+user told to go install a package. That is a half-finished job, and it is the
+failure this step exists to prevent.
+
+Check first — if all three are already present, skip to §1:
+
+- `Assets/MoonForge/` (a previously generated SDK), or
+- a `com.moonforge.*` entry in `Packages/manifest.json`, or
+- a `MoonForgeSettings` asset under a `Resources/` folder.
+
+Otherwise **generate the SDK into `Assets/MoonForge/`**, implementing every row
+of the contract in `sdk-contract.md`. Do not go looking for a package to
+install; write it.
+
+### Unity specifics
+
+- **Namespace** `MoonForge.ErrorTracking.Analytics`, static entry point
+  `MoonForgeAnalytics`, so the API in §1 below is what the game calls. Keep
+  these names exactly — the rest of this reference, and any existing
+  instrumentation, depends on them.
+- **Assembly definition** — add `MoonForge.ErrorTracking.asmdef` so the SDK
+  compiles as its own assembly and cannot be broken by game-code changes.
+- **Runner** — a `MonoBehaviour` created via
+  `[RuntimeInitializeOnLoadMethod]` and kept with `DontDestroyOnLoad`, to own
+  coroutines and lifecycle. `init` must be idempotent, so guard the creation.
+- **Transport** — `UnityWebRequest` on a coroutine, `timeout = 5`. Swallow
+  every error; never surface one to the game. Unity's default User-Agent
+  contains `UnityPlayer` and is allowlisted, so leave it alone.
+- **Distinct id** — `PlayerPrefs` (`Application.persistentDataPath` for a
+  larger payload), written once and reused. `PlayerPrefs.Save()` after
+  creating it.
+- **Session end** — `Application.quitting`, plus `OnApplicationPause(true)` on
+  mobile, where quitting often does not fire. Send it with
+  `UnityWebRequest` best-effort; accept that a hard kill loses it.
+- **Screen views** — `SceneManager.sceneLoaded` → `TrackScreenView(scene.name)`
+  when `trackSceneViewsAutomatically` is on.
+- **Settings** — a `MoonForgeSettings` `ScriptableObject` in `Assets/Resources/`
+  carrying at minimum `gameId`, `enabled`, `debugMode`, plus the fields the
+  orchestrator's settings table lists. **Create the asset and write the game id
+  into it** — an SDK with no game id is inert, and this is the step most often
+  left to the user.
+- **Tests** — if the project has a Test Framework assembly, add EditMode tests
+  for the envelope shape and the pre-identify buffer, per the contract.
+
+Show the generated files as a diff and get approval, like any other change.
+
 ## Full SDK API Reference
+
 
 Namespace: `MoonForge.ErrorTracking.Analytics` (analytics)
 Namespace: `MoonForge.ErrorTracking` (error tracking, breadcrumbs, game state)
@@ -223,7 +276,8 @@ public void OnBossFightStart(string bossId)
 - Hardcoding property values instead of using game variables
 - Placing `using` statement inside a namespace block
 - Forgetting `System.Collections.Generic` import for Dictionary
-- Not checking if the SDK is installed (look for MoonForgeSettings asset)
+- Writing TrackEvent calls before the SDK is in the project (see §0 — this leaves the project not compiling)
+- Leaving `MoonForgeSettings` without the game id, which makes the SDK inert
 - Using `MoonForge.ErrorTracking` import when only analytics is needed (or vice versa)
 - Adding `SendWithTracking()` without `using MoonForge.ErrorTracking.Capture`
 - Duplicating auto-collected fields (scene, device, language, timestamp) in custom properties

@@ -1,7 +1,13 @@
 # MoonForge Implement — Web
 
-The generated SDK lives in this skill at `assets/moonforge-sdk/` (ES modules) with a
-prebuilt `moonforge.global.js` for legacy `<script>` games.
+The SDK ships with this skill at `assets/moonforge-sdk/` (ES modules, plus a
+prebuilt `moonforge.global.js` for legacy `<script>` games). It already
+implements the full contract in `sdk-contract.md` — session lifecycle,
+pre-identify buffering, persistent distinct id — so on web you copy rather than
+generate.
+
+**Copy it in before writing any tracking calls.** Instrumenting against an SDK
+that is not in the project leaves the game broken and the job half done.
 
 ## 1. Install the SDK into the project
 - **Bundler / `<script type="module">` game:** copy the folder `assets/moonforge-sdk/`
