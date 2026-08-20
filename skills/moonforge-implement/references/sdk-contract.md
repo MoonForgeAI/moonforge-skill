@@ -24,6 +24,8 @@ generate path.
 | Capability | Behaviour |
 |---|---|
 | `init(gameId, opts)` | Load config, restore or create the distinct id, start the session. **Idempotent** — a second call must not start a second session. |
+| **App version** | `appVersion` on every event and identify payload — the game/app's own version *at the moment the event is sent* (Unity: `Application.version`; web: the project's `package.json` `"version"`, passed through `init`'s `appVersion` option; other engines: whatever the project's own version metadata is). **Never** the moonforge-skill's or the generated SDK's own version — those are unrelated numbers that happen to also be called "version." If the project has no discoverable version, ask the user rather than hardcoding a placeholder like `"1.0.0"`. |
+| **Screen & language** | `screen` (e.g. `"1920x1080"`) and `language` (e.g. `"en-US"`) on every event, read from whatever the platform actually exposes — not left to chance. Web and Unity always send both (real, always-available runtime APIs on both). On any other engine, source them for real (see `generic.md` §3 for the per-engine APIs) rather than defaulting to an empty string. Omit a field only when the platform genuinely has no such concept — a headless game server has no `screen` — never when it was simply not looked up. |
 | `track_event(name, data)` | Fire-and-forget. Never blocks a frame, never throws. |
 | `track_screen_view(name)` | Emits `screen_view` with `{ screen_name }`. |
 | `identify(userId, traits)` | Sets the distinct id, emits `identify`, releases the pre-identify buffer. |
@@ -48,7 +50,8 @@ generate path.
     "id": "<distinct-id>",
     "name": "level_complete",
     "data": { "level": 3, "duration_seconds": 91 },
-    "timestamp": 1755381234
+    "timestamp": 1755381234,
+    "appVersion": "1.4.2"
   }
 }
 ```
@@ -61,7 +64,8 @@ generate path.
     "game": "<GAME_UUID>",
     "id": "<user-id>",
     "data": { "plan": "premium" },
-    "timestamp": 1755381234
+    "timestamp": 1755381234,
+    "appVersion": "1.4.2"
   }
 }
 ```
@@ -73,9 +77,10 @@ generate path.
 | `name` | `snake_case`. Every distinct name is a separate series. |
 | `data` | Flat. Strings, numbers, booleans — no nested objects or arrays. |
 | `timestamp` | Unix **SECONDS**. Milliseconds put events ~55,000 years in the future, where no query will return them. |
+| `appVersion` | The game's own version, read fresh at send time — not cached from a value that could go stale, not the skill's version. |
+| `screen`, `language` | Send whenever the platform can provide them (see the capability table above) — not optional in the "don't bother" sense, only in the "may not exist on this platform" sense. |
 
-Optional, safe to omit: `url`, `title`, `referrer`, `screen`, `language`,
-`hostname`.
+Optional, safe to omit: `url`, `title`, `referrer`, `hostname`.
 
 ## The User-Agent trap
 

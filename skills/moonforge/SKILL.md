@@ -274,7 +274,7 @@ The SDK automatically tracks when initialized:
 - Unhandled exceptions, Unity log errors, native crashes (separate error pipeline)
 
 **Auto-collected fields on EVERY event (never duplicate in custom properties):**
-`game`, `id` (user UUID), `screen` (resolution), `language`, `url` (current scene), `title` (scene name), `referrer` (previous scene), `timestamp`
+`game`, `id` (user UUID), `screen` (resolution), `language`, `url` (current scene), `title` (scene name), `referrer` (previous scene), `timestamp`, `appVersion` (the game's own version, not this skill's)
 
 ## .moonforge.json Format
 

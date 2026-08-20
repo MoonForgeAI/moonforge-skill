@@ -11,9 +11,10 @@ it as a failure, not as "compilation failed for an unrelated reason".
 Then check the generated SDK against `moonforge-implement/references/sdk-contract.md`:
 idempotent `init`, session lifecycle (`Application.quitting` **and**
 `OnApplicationPause` on mobile), persistent distinct id in `PlayerPrefs`,
-pre-identify buffering, unix-second timestamps, swallowed transport errors.
-An SDK implementing only `TrackEvent` looks finished while losing sessions and
-identity.
+pre-identify buffering, unix-second timestamps, swallowed transport errors, and
+`appVersion` set to `Application.version` (read fresh at send time, not the
+skill's own version) on every event and identify call. An SDK implementing
+only `TrackEvent` looks finished while losing sessions, identity and version.
 
 Confirm `MoonForgeSettings` exists in a `Resources/` folder **and carries the
 game id**. An SDK with no game id is inert, and this is the step most often
@@ -70,7 +71,7 @@ for f in $(grep -rl "SendWithTracking\|NetworkErrorInterceptor\|SendTrackedReque
 done
 
 # Check for duplicate auto-collected properties
-grep -rn "TrackEvent" Assets/ --include="*.cs" | grep -i '"game"\|"id"\|"screen"\|"language"\|"url"\|"title"\|"referrer"\|"timestamp"'
+grep -rn "TrackEvent" Assets/ --include="*.cs" | grep -i '"game"\|"id"\|"screen"\|"language"\|"url"\|"title"\|"referrer"\|"timestamp"\|"appVersion"'
 ```
 
 ### 3. Event Inventory

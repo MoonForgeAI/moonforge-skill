@@ -59,6 +59,7 @@ The MoonForge SDK automatically tracks these when initialized (`MoonForgeAnalyti
 - `title` — current scene name
 - `referrer` — previous scene as `scene://PreviousScene`
 - `timestamp` — unix seconds
+- `appVersion` — the game/app's own version at send time (e.g. `Application.version`, `package.json`'s `"version"`) — never this skill's version
 
 **Server-side enrichment (also auto, no code needed):**
 - Geolocation (country, region, city) from IP

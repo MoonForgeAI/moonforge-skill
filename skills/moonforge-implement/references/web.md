@@ -27,6 +27,14 @@ Read `<GAME_ID>` from `.moonforge.json` (`gameId`) or ask the user.
 `init` accepts `{ gameId, apiEndpoint?, debug?, autoTrackSession?, trackNetworkErrors?, appVersion?, buildNumber? }`.
 `session_start`/`session_end` and unhandled-error capture start automatically.
 
+**Always pass `appVersion`** — it is included on every event and identify
+call as-is. Read it from the project's own `package.json` `"version"` field
+(the game's version, not this skill's) and pass it literally:
+`MoonForgeAnalytics.init({ gameId: '<GAME_ID>', appVersion: '<package.json version>' })`.
+If `package.json` has no `"version"` or the project isn't versioned there, ask
+the user rather than omitting it or inventing a value — an unset `appVersion`
+means `appVersion` is silently absent from every event.
+
 ## 3. Instrument events (parity with Unity)
 Analytics — `MoonForgeAnalytics`:
 `trackEvent(name, data)`, `trackScreenView(name)`, `identify(userId, traits)`,

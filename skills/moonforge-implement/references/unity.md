@@ -42,6 +42,10 @@ install; write it.
   `UnityWebRequest` best-effort; accept that a hard kill loses it.
 - **Screen views** — `SceneManager.sceneLoaded` → `TrackScreenView(scene.name)`
   when `trackSceneViewsAutomatically` is on.
+- **`appVersion`** — set `Application.version` on every `TrackEvent`,
+  `TrackScreenView` and `Identify` payload, read fresh at send time (Unity's
+  Player Settings "Version", not this skill's or the generated SDK's own
+  version). No config needed — it is always available at runtime.
 - **Settings** — a `MoonForgeSettings` `ScriptableObject` in `Assets/Resources/`
   carrying at minimum `gameId`, `enabled`, `debugMode`, plus the fields the
   orchestrator's settings table lists. **Create the asset and write the game id
@@ -267,7 +271,7 @@ public void OnBossFightStart(string bossId)
 - Cast to appropriate types: strings for IDs, ints/floats for numeric values
 - Keep property count to 3-5 per event
 - Use `snake_case` for property keys
-- **Never add these as custom properties** — the SDK auto-collects them on every event: `game`, `id` (user ID), `screen` (resolution), `language`, `url` (current scene), `title` (scene name), `referrer` (previous scene), `timestamp`
+- **Never add these as custom properties** — the SDK auto-collects them on every event: `game`, `id` (user ID), `screen` (resolution), `language`, `url` (current scene), `title` (scene name), `referrer` (previous scene), `timestamp`, `appVersion`
 
 ## Common Mistakes
 

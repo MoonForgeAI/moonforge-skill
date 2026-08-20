@@ -5,10 +5,10 @@ the module that was written and the calls into it.
 
 ## 1. Verify the generated SDK against the parity contract
 
-Check it implements every row of the table in
-`moonforge-implement/references/generic.md` §2. Missing capabilities are the
+Check it implements every row of the required-capabilities table in
+`moonforge-implement/references/sdk-contract.md`. Missing capabilities are the
 main risk on this path — a generated SDK that only does `track_event` looks
-finished and silently loses sessions and identity.
+finished and silently loses sessions, identity, and version.
 
 - `init` is idempotent — a second call must not start a second session.
 - **Session lifecycle**: `session_start` on init, `session_end` on a quit hook,
@@ -18,6 +18,17 @@ finished and silently loses sessions and identity.
   the real id. Absent, everything before login is stranded anonymously.
 - **Persistent distinct id**: written to disk and reloaded, not regenerated per
   launch.
+- **`appVersion`**: set on every event and identify payload from the
+  project's own version, read fresh at send time — not hardcoded, not the
+  moonforge-skill's own version. Grep the SDK module for where it's sourced;
+  if it's a literal string constant, that's a finding.
+- **`screen`/`language`**: sourced from a real engine/OS API, not a hardcoded
+  literal and not silently dropped. Grep for where each is assigned in the SDK
+  module — a literal string (`"1920x1080"`, `"en"`) or an empty string with no
+  real lookup nearby is a finding. The only legitimate reason either is absent
+  is the platform genuinely having no window (a headless server) or no locale
+  source even after the OS-environment-variable fallback in `generic.md` §3 —
+  confirm which, don't just accept that it's missing.
 - `game` is a valid **UUID**, matching `.moonforge.json`.
 - `timestamp` is unix **seconds**. Grep for `* 1000`, `millis`, `MilliSeconds`,
   `get_ticks_msec` — any of these is ~1000× too large and puts events tens of

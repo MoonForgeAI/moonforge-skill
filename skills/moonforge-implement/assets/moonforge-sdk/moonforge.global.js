@@ -37,11 +37,14 @@
     return Math.floor(Date.now() / 1e3);
   }
   function init(options = {}) {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e;
     if (!options.gameId) {
       console.warn("[MoonForge] init: gameId is required; SDK disabled.");
       state.config = null;
       return void 0;
+    }
+    if (!options.appVersion) {
+      console.warn("[MoonForge] init: appVersion not provided \u2014 appVersion will be missing from every event.");
     }
     state.config = {
       gameId: options.gameId,
@@ -49,8 +52,11 @@
       debug: (_b = options.debug) != null ? _b : false,
       autoTrackSession: (_c = options.autoTrackSession) != null ? _c : true,
       trackNetworkErrors: (_d = options.trackNetworkErrors) != null ? _d : false,
-      appVersion: (_e = options.appVersion) != null ? _e : "1.0.0",
-      buildNumber: (_f = options.buildNumber) != null ? _f : "1"
+      // No fallback default: a fabricated "1.0.0" would be indistinguishable
+      // from a real one in the dashboard. Omitted from the JSON body entirely
+      // when not supplied, rather than lying with a placeholder.
+      appVersion: options.appVersion,
+      buildNumber: (_e = options.buildNumber) != null ? _e : "1"
     };
     return state.config;
   }
@@ -114,7 +120,7 @@
     resetSession();
   }
   function collectAutoFields() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
     const loc = (_a = globalThis.location) != null ? _a : {};
     const doc = (_b = globalThis.document) != null ? _b : {};
     const nav = (_c = globalThis.navigator) != null ? _c : {};
@@ -128,10 +134,65 @@
       screen: scr.width && scr.height ? `${scr.width}x${scr.height}` : "",
       language: (_j = nav.language) != null ? _j : "",
       hostname: (_k = loc.hostname) != null ? _k : "",
-      timestamp: unixSeconds()
+      timestamp: unixSeconds(),
+      appVersion: (_l = state.config) == null ? void 0 : _l.appVersion
     };
   }
+  var IDENTIFY_GRACE_MS = 1e4;
+  var MAX_BUFFERED_EVENTS = 50;
+  var pendingEvents = [];
+  var identified = false;
+  var flushTimer = null;
+  function sendBuffered() {
+    const queued = pendingEvents;
+    pendingEvents = [];
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    const id = getDistinctId();
+    for (const { payload, opts } of queued) {
+      if (payload && payload.payload && typeof payload.payload === "object") {
+        payload.payload.id = id;
+      }
+      void deliver(payload, opts);
+    }
+  }
+  function markIdentified() {
+    if (identified) return;
+    identified = true;
+    sendBuffered();
+  }
+  function resetBuffering() {
+    pendingEvents = [];
+    identified = false;
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+  }
   async function postEvent(payload, { beacon = false } = {}) {
+    if (!state.config) return false;
+    const bufferable = !identified && !beacon && payload && payload.type !== "identify";
+    if (bufferable) {
+      if (pendingEvents.length < MAX_BUFFERED_EVENTS) {
+        pendingEvents.push({ payload, opts: { beacon } });
+      } else {
+        debugLog("buffer full, sending anonymously", payload.type);
+        return deliver(payload, { beacon });
+      }
+      if (!flushTimer && typeof setTimeout === "function") {
+        flushTimer = setTimeout(() => {
+          debugLog("identify grace expired, flushing anonymously");
+          sendBuffered();
+        }, IDENTIFY_GRACE_MS);
+        if (flushTimer && typeof flushTimer.unref === "function") flushTimer.unref();
+      }
+      return true;
+    }
+    return deliver(payload, { beacon });
+  }
+  async function deliver(payload, { beacon = false } = {}) {
     var _a;
     if (!state.config) return false;
     const url = `${state.config.apiEndpoint}/api/send`;
@@ -203,7 +264,8 @@
   function identify(userId, traits = {}) {
     if (!ensure()) return void 0;
     if (userId) setDistinctId(userId);
-    return postEvent({ type: "identify", payload: { game: getConfig().gameId, id: userId != null ? userId : getDistinctId(), data: traits, timestamp: unixSeconds() } });
+    markIdentified();
+    return postEvent({ type: "identify", payload: { game: getConfig().gameId, id: userId != null ? userId : getDistinctId(), data: traits, timestamp: unixSeconds(), appVersion: getConfig().appVersion } });
   }
   function setUserProperty(k, v) {
     setUserProp(k, v);
@@ -468,7 +530,11 @@
     getDistinctId,
     getSessionId,
     reset,
-    flush
+    flush,
+    // Exposed so a host app can release buffered events on a path that does not
+    // call identify, and so tests can reset buffering between cases.
+    markIdentified,
+    resetBuffering
   };
   var MoonForgeErrorTracker = {
     setUser,

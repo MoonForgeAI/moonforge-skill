@@ -21,7 +21,7 @@ export function identify(userId, traits = {}) {
   // Releases anything emitted before the player was known - session_start
   // above all - rewritten to this id rather than the anonymous one.
   markIdentified();
-  return postEvent({ type: 'identify', payload: { game: getConfig().gameId, id: userId ?? getDistinctId(), data: traits, timestamp: unixSeconds() } });
+  return postEvent({ type: 'identify', payload: { game: getConfig().gameId, id: userId ?? getDistinctId(), data: traits, timestamp: unixSeconds(), appVersion: getConfig().appVersion } });
 }
 export function setUserProperty(k, v) { setUserProp(k, v); }
 export function removeUserProperty(k) { removeUserProp(k); }
