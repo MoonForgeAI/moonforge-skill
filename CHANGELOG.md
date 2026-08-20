@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.3.0] — 2026-08-21
+
+### Added
+
+- `/moonforge` now checks for a newer skill version at the start of every run
+  (Step 1 of its process flow): it fetches the `version:` frontmatter from
+  this repo's `main` branch and compares it to the installed version. If
+  newer, it notifies the user once and asks whether to update. The check is
+  best-effort — a failed or slow fetch (offline, GitHub unreachable) is
+  skipped silently rather than blocking instrumentation — and it never
+  installs anything without explicit confirmation, since updating touches
+  files under `~/.claude/skills/`, outside the current project directory.
+
 ## [1.2.0] — 2026-08-18
 
 ### Fixed

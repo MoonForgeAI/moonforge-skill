@@ -1,7 +1,7 @@
 ---
 name: moonforge
 description: Use when instrumenting a game of any engine with MoonForge analytics and error events — analyzes the game, recommends events, generates the SDK into the project, writes the tracking calls, and verifies the setup
-version: 1.2.0
+version: 1.3.0
 ---
 
 # MoonForge Analytics Instrumentation
@@ -64,10 +64,10 @@ digraph moonforge {
 
 Best-effort, never blocking. Fetch the `version:` frontmatter from
 `https://raw.githubusercontent.com/MoonForgeAI/moonforge-skill/main/skills/moonforge/SKILL.md`
-and compare it to this file's own `version:` above (currently `1.2.0`).
+and compare it to this file's own `version:` above.
 
 - **Newer version available:** tell the user once, briefly — e.g. "MoonForge
-  skill v1.3.0 is available (you have v1.2.0)." — and ask whether they want to
+  skill v&lt;remote&gt; is available (you have v&lt;installed&gt;)." — and ask whether they want to
   update now. If yes, run the one-line install command from this repo's
   `README.md` (`git clone` + copy into `~/.claude/skills/`), then continue the
   flow on the version that was just running — do not re-invoke yourself
