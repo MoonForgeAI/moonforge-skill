@@ -5,7 +5,7 @@ import * as a from '../../skills/moonforge-implement/assets/moonforge-sdk/analyt
 
 function lastBody(fetchMock) { return JSON.parse(fetchMock.mock.calls.at(-1)[1].body); }
 
-beforeEach(() => { core.resetAll(); core.init({ gameId: 'g-1' }); });
+beforeEach(() => { core.resetAll(); core.init({ gameId: 'g-1', appVersion: '3.1.4' }); });
 
 describe('analytics', () => {
   it('trackEvent posts an event envelope with auto fields + merged user props', async () => {
@@ -14,7 +14,7 @@ describe('analytics', () => {
     await a.trackEvent('level_start', { level: 3 });
     const b = lastBody(f);
     expect(b.type).toBe('event');
-    expect(b.payload).toMatchObject({ game: 'g-1', name: 'level_start' });
+    expect(b.payload).toMatchObject({ game: 'g-1', name: 'level_start', appVersion: '3.1.4' });
     expect(b.payload.data).toMatchObject({ plan: 'pro', level: 3 });
   });
 
@@ -31,7 +31,7 @@ describe('analytics', () => {
     await a.identify('user-42', { tier: 'gold' });
     const b = lastBody(f);
     expect(b.type).toBe('identify');
-    expect(b.payload).toMatchObject({ game: 'g-1', id: 'user-42', data: { tier: 'gold' } });
+    expect(b.payload).toMatchObject({ game: 'g-1', id: 'user-42', data: { tier: 'gold' }, appVersion: '3.1.4' });
     expect(core.getDistinctId()).toBe('user-42');
   });
 

@@ -34,6 +34,13 @@ describe('core', () => {
     expect(f.timestamp).toBeGreaterThan(1e9);
   });
 
+  it('collectAutoFields carries appVersion from init, with no fabricated default', () => {
+    expect(core.collectAutoFields().appVersion).toBeUndefined(); // no appVersion passed in beforeEach
+
+    core.init({ gameId: 'g-1', appVersion: '2.3.1' });
+    expect(core.collectAutoFields()).toMatchObject({ appVersion: '2.3.1' });
+  });
+
   it('postEvent uses fetch(keepalive), captures + replays the cache token', async () => {
     const fetchMock = mockFetchOk('tok_abc');
     await core.postEvent({ type: 'event', payload: { game: 'g-1', name: 'x' } });

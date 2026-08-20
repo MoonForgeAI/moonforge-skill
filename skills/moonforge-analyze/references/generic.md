@@ -67,6 +67,11 @@ Existing Analytics, SDK Status — with two additions that matter downstream:
   in scope.
 - **Quit hook** — which notification the engine exposes for shutdown. The
   generated SDK needs it for `session_end`.
+- **Display and locale** — does the project have a window/viewport at all, or
+  is it headless (a game server)? Does the engine expose a locale/language API,
+  or would the generated SDK need to fall back to an OS environment variable?
+  This decides whether `screen` and `language` are sourced for real or
+  legitimately omitted — see `moonforge-implement/references/generic.md` §3.
 
 ## Common mistakes
 

@@ -27,13 +27,17 @@ export function unixSeconds() { return Math.floor(Date.now() / 1000); }
 
 export function init(options = {}) {
   if (!options.gameId) { console.warn('[MoonForge] init: gameId is required; SDK disabled.'); state.config = null; return undefined; }
+  if (!options.appVersion) { console.warn('[MoonForge] init: appVersion not provided — appVersion will be missing from every event.'); }
   state.config = {
     gameId: options.gameId,
     apiEndpoint: (options.apiEndpoint ?? DEFAULT_ENDPOINT).replace(/\/+$/, ''),
     debug: options.debug ?? false,
     autoTrackSession: options.autoTrackSession ?? true,
     trackNetworkErrors: options.trackNetworkErrors ?? false,
-    appVersion: options.appVersion ?? '1.0.0',
+    // No fallback default: a fabricated "1.0.0" would be indistinguishable
+    // from a real one in the dashboard. Omitted from the JSON body entirely
+    // when not supplied, rather than lying with a placeholder.
+    appVersion: options.appVersion,
     buildNumber: options.buildNumber ?? '1',
   };
   return state.config;
@@ -73,6 +77,7 @@ export function collectAutoFields() {
     referrer: doc.referrer ?? '',
     screen: scr.width && scr.height ? `${scr.width}x${scr.height}` : '',
     language: nav.language ?? '', hostname: loc.hostname ?? '', timestamp: unixSeconds(),
+    appVersion: state.config?.appVersion,
   };
 }
 

@@ -27,5 +27,5 @@ Two honest caveats worth stating once, not dwelling on:
   than assuming — unlike sessions, this is a genuine choice.
 
 If the generated SDK does *not* implement session lifecycle, that is a defect in
-the generation step, not a platform limitation. See the parity table in
-`moonforge-implement/references/generic.md` §2.
+the generation step, not a platform limitation. See the required-capabilities
+table in `moonforge-implement/references/sdk-contract.md`.
