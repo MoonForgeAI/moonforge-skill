@@ -33,6 +33,7 @@ is no engine this skill has to turn away.
 ```dot
 digraph moonforge {
     "Start" [shape=doublecircle];
+    "Check for updates" [shape=box, style=dashed];
     "Detect platform" [shape=box];
     "Get game ID" [shape=box];
     "game_id provided?" [shape=diamond];
@@ -44,7 +45,8 @@ digraph moonforge {
     "moonforge-verify" [shape=box, style=bold];
     "Done" [shape=doublecircle];
 
-    "Start" -> "Detect platform";
+    "Start" -> "Check for updates";
+    "Check for updates" -> "Detect platform";
     "Detect platform" -> "game_id provided?";
     "game_id provided?" -> "Use provided game_id" [label="yes"];
     "game_id provided?" -> "Get game ID" [label="no"];
@@ -58,7 +60,27 @@ digraph moonforge {
 }
 ```
 
-### Step 1: Detect Platform
+### Step 1: Check for Updates
+
+Best-effort, never blocking. Fetch the `version:` frontmatter from
+`https://raw.githubusercontent.com/MoonForgeAI/moonforge-skill/main/skills/moonforge/SKILL.md`
+and compare it to this file's own `version:` above (currently `1.2.0`).
+
+- **Newer version available:** tell the user once, briefly — e.g. "MoonForge
+  skill v1.3.0 is available (you have v1.2.0)." — and ask whether they want to
+  update now. If yes, run the one-line install command from this repo's
+  `README.md` (`git clone` + copy into `~/.claude/skills/`), then continue the
+  flow on the version that was just running — do not re-invoke yourself
+  mid-session. If no, or no answer needed, proceed immediately to Step 2.
+- **Up to date, or the fetch fails/times out (offline, GitHub unreachable,
+  rate-limited):** say nothing and proceed straight to Step 2. A version check
+  must never stall or fail the actual instrumentation task — treat any error
+  here as "skip and continue," not as a blocker to raise to the user.
+- **Never auto-install.** Updating overwrites files under `~/.claude/skills/`,
+  outside the current project directory — always get explicit confirmation
+  first, exactly like any other change outside the project tree.
+
+### Step 2: Detect Platform
 
 Determine the `platform` for this project by checking the current directory:
 - **Unity** — `Assets/` directory and `ProjectSettings/ProjectSettings.asset` present.
@@ -76,7 +98,7 @@ Determine the `platform` for this project by checking the current directory:
 
 Set `platform` to `unity`, `web`, or `generic` and pass it to every sub-skill below.
 
-### Step 2: Get Game ID
+### Step 3: Get Game ID
 
 Priority order:
 1. Passed as argument to this skill
@@ -99,25 +121,25 @@ If the user wants to explore the flow before signing up, offer to run
 `/moonforge:analyze` and `/moonforge:events` — both work fully without a game
 ID. Only implement and verify need one.
 
-### Step 3: Analyze
+### Step 4: Analyze
 
 **REQUIRED SUB-SKILL:** Use moonforge-analyze, passing `platform`
 
 Scan the project and present the game profile to the user.
 
-### Step 4: Recommend Events
+### Step 5: Recommend Events
 
 **REQUIRED SUB-SKILL:** Use moonforge-events, passing `platform`
 
 Present tiered event recommendations. Wait for user to select tiers.
 
-### Step 5: Implement
+### Step 6: Implement
 
 **REQUIRED SUB-SKILL:** Use moonforge-implement, passing `platform`
 
 For each event in selected tiers, find the right file and method, write the TrackEvent call, and show diff for approval.
 
-### Step 6: Verify
+### Step 7: Verify
 
 **REQUIRED SUB-SKILL:** Use moonforge-verify, passing `platform`
 
