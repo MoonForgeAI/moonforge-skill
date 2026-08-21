@@ -10,6 +10,18 @@ the git tag are kept in lockstep.
 
 ### Added
 
+- **`appVersion` on every event and identify payload** — the game/app's own
+  version at send time (Unity: `Application.version`; web: `package.json`
+  `"version"` passed through `init`; other engines: whatever version metadata
+  the project defines), never this skill's own version. No fabricated default
+  is sent when it's missing — the field is simply omitted, with a console
+  warning on init, rather than lying with a placeholder like `"1.0.0"`.
+- **`screen`/`language` promoted from "optional, safe to omit" to "source
+  them for real"** in the SDK contract, with per-engine guidance for the
+  generic path (Godot, Unreal, LÖVE, Bevy, MonoGame, custom engines) and an
+  analyze-step check for whether an engine even exposes display/locale APIs.
+  Omitted only when the platform genuinely has no such concept (e.g. `screen`
+  on a headless game server), never when it was simply not looked up.
 - `/moonforge` now checks for a newer skill version at the start of every run
   (Step 1 of its process flow): it fetches the `version:` frontmatter from
   this repo's `main` branch and compares it to the installed version. If
