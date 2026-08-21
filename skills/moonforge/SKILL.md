@@ -68,17 +68,20 @@ and compare it to this file's own `version:` above.
 
 - **Newer version available:** tell the user once, briefly — e.g. "MoonForge
   skill v&lt;remote&gt; is available (you have v&lt;installed&gt;)." — and ask whether they want to
-  update now. If yes, run the one-line install command from this repo's
-  `README.md` (`git clone` + copy into `~/.claude/skills/`), then continue the
+  update now. If yes, follow this repo's `README.md` install instructions for
+  whichever tool you are running as (`git clone` + copy into that tool's
+  skills/commands folder — Claude Code's is `~/.claude/skills/`; see the
+  README's "Other AI Tools" section for anything else), then continue the
   flow on the version that was just running — do not re-invoke yourself
   mid-session. If no, or no answer needed, proceed immediately to Step 2.
 - **Up to date, or the fetch fails/times out (offline, GitHub unreachable,
   rate-limited):** say nothing and proceed straight to Step 2. A version check
   must never stall or fail the actual instrumentation task — treat any error
   here as "skip and continue," not as a blocker to raise to the user.
-- **Never auto-install.** Updating overwrites files under `~/.claude/skills/`,
-  outside the current project directory — always get explicit confirmation
-  first, exactly like any other change outside the project tree.
+- **Never auto-install.** Updating overwrites files outside the current
+  project directory (the skills/commands folder for whichever tool is
+  running this skill) — always get explicit confirmation first, exactly like
+  any other change outside the project tree.
 
 ### Step 2: Detect Platform
 

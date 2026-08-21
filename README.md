@@ -1,10 +1,13 @@
-# MoonForge Skill for Claude Code
+# MoonForge Skill
 
-**Version 1.2.0**
+**Version 1.3.0**
 
-An interactive Claude Code skill package that instruments any game with
+An interactive skill package that instruments any game with
 [MoonForge](https://moonforge.co) analytics and error tracking — whatever engine
-it runs on.
+it runs on. Built for **Claude Code**, and usable with any other AI coding
+tool that supports a similar skills/commands convention — see
+[Installation](#installation) for exact steps on Claude Code and general
+steps for everything else.
 
 ## What It Does
 
@@ -69,13 +72,15 @@ game still builds. Already-collected analytics data is retained server-side.
 
 ## Installation
 
-### One-Line Install (Recommended)
+### Claude Code
+
+#### One-Line Install (Recommended)
 
 ```bash
 git clone https://github.com/MoonForgeAI/moonforge-skill.git /tmp/moonforge-skill && cp -r /tmp/moonforge-skill/skills/* ~/.claude/skills/ && rm -rf /tmp/moonforge-skill && echo "MoonForge skill installed successfully"
 ```
 
-### Manual Install
+#### Manual Install
 
 1. Clone this repository:
    ```bash
@@ -89,11 +94,36 @@ git clone https://github.com/MoonForgeAI/moonforge-skill.git /tmp/moonforge-skil
 
 3. Verify installation — the skills should appear in your next Claude Code session.
 
-### Uninstall
+#### Uninstall
 
 ```bash
 rm -rf ~/.claude/skills/moonforge ~/.claude/skills/moonforge-analyze ~/.claude/skills/moonforge-events ~/.claude/skills/moonforge-implement ~/.claude/skills/moonforge-verify ~/.claude/skills/moonforge-uninstall
 ```
+
+### Other AI Tools
+
+Every skill folder under `skills/` is self-contained — a `SKILL.md` (the
+instructions the agent follows) plus `references/` (per-platform detail) and,
+for `moonforge-implement`, an `assets/` folder with the bundled web SDK. If
+your tool has its own skills/commands/rules folder, the general steps are the
+same regardless of exact tool:
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/MoonForgeAI/moonforge-skill.git
+   ```
+2. Copy (or symlink) the `skills/` folders you want into your tool's
+   skills/commands folder, the same way you would for Claude Code above.
+3. Check your tool's docs for whether it reads a `SKILL.md`-style folder
+   (name + description frontmatter, subfolders alongside it) or only a single
+   flat file per command/rule. If it's the latter, the content of each
+   `SKILL.md` is still the whole instruction set — paste it in as one file,
+   but note that the `references/` and `assets/` content it points to won't
+   be reachable the same way, so cross-references to those paths may need
+   inlining or dropping.
+
+Uninstalling is the same in reverse: remove whatever you copied in from your
+tool's skills/commands folder.
 
 ## Usage
 
@@ -104,6 +134,9 @@ Open Claude Code in your game's directory and run:
 ```
 /moonforge
 ```
+
+(On another AI tool, invoke it however that tool triggers a named
+skill/command — the `/moonforge` slash-command syntax below is Claude Code's.)
 
 The skill will:
 1. Detect your engine and ask for your MoonForge game ID (or read it from `.moonforge.json` if present)
@@ -231,11 +264,14 @@ Each skill carries `references/unity.md`, `references/web.md`, and
 
 Every `SKILL.md` declares a `version:` in its frontmatter, matching the
 `version` in `package.json` and the release tag. To check what you have
-installed:
+installed on Claude Code:
 
 ```bash
 grep -h "^version:" ~/.claude/skills/moonforge/SKILL.md
 ```
+
+(On another AI tool, point this at wherever you copied `moonforge/SKILL.md`
+into instead.)
 
 If that prints nothing, you are on a pre-1.0.0 copy from before versioning
 existed — reinstall with the one-line command above.
