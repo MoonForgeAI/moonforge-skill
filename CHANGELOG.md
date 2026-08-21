@@ -6,6 +6,24 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.4.0] — 2026-08-21
+
+### Changed
+
+- **Docs are no longer Claude-Code-exclusive.** The skill package itself was
+  already tool-agnostic (nothing in `skills/*/SKILL.md` besides the
+  orchestrator's version-check step named a specific tool), but the README
+  and version-check instructions assumed Claude Code throughout. Installation
+  now has a `### Claude Code` subsection (exact, unchanged commands) and an
+  `### Other AI Tools` subsection (clone + copy into your tool's
+  skills/commands folder, with a note that tools supporting only flat
+  single-file commands won't preserve the `references/`/`assets/` subfolder
+  structure). The title and intro no longer claim Claude Code exclusivity.
+- The version-check step in `moonforge/SKILL.md` and the README's Versioning
+  section both hardcoded `~/.claude/skills/` as the install/check path; both
+  now point at "whichever tool you're running as" with Claude Code kept as
+  the one exact example.
+
 ## [1.3.0] — 2026-08-21
 
 ### Added
