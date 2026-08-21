@@ -240,6 +240,11 @@ grep -h "^version:" ~/.claude/skills/moonforge/SKILL.md
 If that prints nothing, you are on a pre-1.0.0 copy from before versioning
 existed — reinstall with the one-line command above.
 
+`/moonforge` also checks for a newer version itself at the start of every run
+(Step 1 of its process flow) and offers to update if one is available. The
+check is best-effort — it never blocks the run if GitHub is unreachable — and
+it only asks; it never installs anything without your say-so.
+
 See [CHANGELOG.md](CHANGELOG.md) for what changed between versions.
 
 ## License
