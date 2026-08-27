@@ -1,8 +1,15 @@
 {
-  "name": "moonforge-skill",
-  "version": "1.4.0",
-  "private": true,
+  "name": "@moonforge/skill",
+  "version": "1.5.0",
   "type": "module",
+  "description": "Installs the MoonForge skill for Claude Code, Codex, Cursor, GitHub Copilot, or Windsurf.",
+  "bin": {
+    "moonforge-skill": "./bin/install.js"
+  },
+  "files": [
+    "bin",
+    "skills"
+  ],
   "scripts": {
     "test": "vitest run",
     "build:sdk": "node scripts/build-sdk.mjs"

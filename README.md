@@ -1,13 +1,13 @@
 # MoonForge Skill
 
-**Version 1.4.0**
+**Version 1.5.0**
 
 An interactive skill package that instruments any game with
 [MoonForge](https://moonforge.co) analytics and error tracking — whatever engine
-it runs on. Built for **Claude Code**, and usable with any other AI coding
-tool that supports a similar skills/commands convention — see
-[Installation](#installation) for exact steps on Claude Code and general
-steps for everything else.
+it runs on. Works with Claude Code, Codex CLI, Cursor, GitHub Copilot, and
+Windsurf out of the box, and any other AI coding tool that supports a similar
+skills/commands convention — see [Installation](#installation) for exact
+steps.
 
 ## What It Does
 
@@ -72,9 +72,25 @@ game still builds. Already-collected analytics data is retained server-side.
 
 ## Installation
 
-### Claude Code
+### One-Line Install (Recommended)
 
-#### One-Line Install (Recommended)
+Works for Claude Code, Codex CLI, Cursor, GitHub Copilot, and Windsurf — pass
+the agent you're using as the argument:
+
+```bash
+npx @moonforge/skill claude    # or: codex, cursor, copilot, windsurf
+```
+
+This installs the skill globally into the right directory for that agent —
+`~/.claude/skills`, `~/.codex/skills`, `~/.cursor/skills`,
+`~/.copilot/skills`, or `~/.codeium/windsurf/skills` (Windsurf's own
+directory namespace, not `~/.windsurf`) — so it's available in every
+project, not just the one you're currently in. Same command on macOS,
+Linux, and Windows.
+
+### Claude Code (git clone alternative)
+
+If you'd rather not use npx:
 
 ```bash
 git clone https://github.com/MoonForgeAI/moonforge-skill.git /tmp/moonforge-skill && cp -r /tmp/moonforge-skill/skills/* ~/.claude/skills/ && rm -rf /tmp/moonforge-skill && echo "MoonForge skill installed successfully"
