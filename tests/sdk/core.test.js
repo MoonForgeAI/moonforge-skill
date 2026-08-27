@@ -43,6 +43,7 @@ describe('core', () => {
 
   it('postEvent uses fetch(keepalive), captures + replays the cache token', async () => {
     const fetchMock = mockFetchOk('tok_abc');
+    core.markIdentified();
     await core.postEvent({ type: 'event', payload: { game: 'g-1', name: 'x' } });
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ keepalive: true, method: 'POST' });
     await core.postEvent({ type: 'event', payload: { game: 'g-1', name: 'y' } });

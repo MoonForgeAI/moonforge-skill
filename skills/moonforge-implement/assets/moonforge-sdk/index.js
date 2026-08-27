@@ -31,7 +31,7 @@ function beginSpan() {
   if (globalThis.__mfSessionActive) return;
   globalThis.__mfSessionActive = true;
   sessionStartedAt = Date.now();
-  analytics.trackEvent('session_start', { session_id: core.getSessionId() });
+  analytics.trackSessionStart();
 }
 
 /**
@@ -113,7 +113,14 @@ function init(options = {}) {
 export const MoonForgeAnalytics = {
   init,
   trackEvent: analytics.trackEvent,
+  trackSessionStart: analytics.trackSessionStart,
   trackScreenView: analytics.trackScreenView,
+  trackEconomyTransaction: analytics.trackEconomyTransaction,
+  trackIapInitiated: analytics.trackIapInitiated,
+  trackIapCompleted: analytics.trackIapCompleted,
+  trackAdStarted: analytics.trackAdStarted,
+  trackAdCompleted: analytics.trackAdCompleted,
+  trackAdImpression: analytics.trackAdImpression,
   identify: analytics.identify,
   setUserProperty: analytics.setUserProperty,
   removeUserProperty: analytics.removeUserProperty,

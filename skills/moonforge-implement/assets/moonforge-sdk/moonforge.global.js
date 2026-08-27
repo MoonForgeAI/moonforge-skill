@@ -1,9 +1,125 @@
 /* MoonForge Web SDK — generated global bundle. Do not edit by hand. Regenerate with: npm run build:sdk */
 (() => {
+  // skills/moonforge-implement/assets/moonforge-sdk/context-capture.js
+  var FIRST_TOUCH_PREFIX = "mf_attr_first_";
+  var ATTR_KEYS = [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_content",
+    "utm_term",
+    "gclid",
+    "fbclid",
+    "attr_channel",
+    "attr_touch"
+  ];
+  function lget(k) {
+    var _a, _b;
+    try {
+      return (_b = (_a = globalThis.localStorage) == null ? void 0 : _a.getItem(k)) != null ? _b : null;
+    } catch {
+      return null;
+    }
+  }
+  function lset(k, v) {
+    var _a;
+    try {
+      (_a = globalThis.localStorage) == null ? void 0 : _a.setItem(k, v);
+    } catch {
+    }
+  }
+  function getTimezone() {
+    var _a;
+    try {
+      return (_a = Intl.DateTimeFormat().resolvedOptions().timeZone) != null ? _a : "";
+    } catch {
+      return "";
+    }
+  }
+  function getLocaleGeo() {
+    var _a, _b, _c;
+    const nav = (_a = globalThis.navigator) != null ? _a : {};
+    const lang = (_b = nav.language) != null ? _b : "";
+    const parts = lang.split("-");
+    const out = {};
+    if (parts.length >= 2 && parts[1].length === 2) {
+      out.country = parts[1].toUpperCase();
+    }
+    const locales = (_c = nav.languages) != null ? _c : [];
+    for (const loc of locales) {
+      const seg = String(loc).split("-");
+      if (seg.length >= 2 && seg[1].length === 2) {
+        out.country = seg[1].toUpperCase();
+        break;
+      }
+    }
+    return out;
+  }
+  function parseAttributionFromSearch(search) {
+    var _a;
+    const out = {};
+    if (!search) return out;
+    const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    for (const key of ATTR_KEYS) {
+      const v = params.get(key);
+      if (v) out[key] = v;
+    }
+    if (!out.attr_channel && (out.utm_source || out.gclid || out.fbclid)) {
+      out.attr_channel = (_a = out.utm_source) != null ? _a : out.gclid ? "google" : out.fbclid ? "facebook" : "campaign";
+    }
+    if (Object.keys(out).length && !out.attr_touch) out.attr_touch = "last";
+    return out;
+  }
+  function readFirstTouch() {
+    const out = {};
+    for (const key of ATTR_KEYS) {
+      const v = lget(`${FIRST_TOUCH_PREFIX}${key}`);
+      if (v) out[`first_${key}`] = v;
+    }
+    return out;
+  }
+  function persistFirstTouch(attrs) {
+    if (!attrs || !Object.keys(attrs).length) return;
+    let wrote = false;
+    for (const key of ATTR_KEYS) {
+      if (!attrs[key]) continue;
+      const storageKey = `${FIRST_TOUCH_PREFIX}${key}`;
+      if (!lget(storageKey)) {
+        lset(storageKey, String(attrs[key]));
+        wrote = true;
+      }
+    }
+    if (wrote) {
+      const existing = lget(`${FIRST_TOUCH_PREFIX}attr_touch`);
+      if (!existing) lset(`${FIRST_TOUCH_PREFIX}attr_touch`, "first");
+    }
+  }
+  function collectAttribution() {
+    var _a, _b;
+    const loc = (_a = globalThis.location) != null ? _a : {};
+    const last = parseAttributionFromSearch((_b = loc.search) != null ? _b : "");
+    if (Object.keys(last).length) persistFirstTouch(last);
+    const first = readFirstTouch();
+    const merged = { ...first };
+    for (const [k, v] of Object.entries(last)) {
+      if (v != null && v !== "") merged[k] = v;
+    }
+    return merged;
+  }
+  function collectClientContext() {
+    const ctx = { timezone: getTimezone(), ...getLocaleGeo(), ...collectAttribution() };
+    const out = {};
+    for (const [k, v] of Object.entries(ctx)) {
+      if (v != null && v !== "") out[k] = v;
+    }
+    return out;
+  }
+
   // skills/moonforge-implement/assets/moonforge-sdk/core.js
   var DISTINCT_ID_KEY = "mf_distinct_id";
   var SESSION_ID_KEY = "mf_session_id";
   var SESSION_TS_KEY = "mf_session_ts";
+  var PREV_SESSION_ID_KEY = "mf_prev_session_id";
   var SESSION_TIMEOUT_MS = 30 * 60 * 1e3;
   var DEFAULT_ENDPOINT = "https://collector.moonforge.co";
   var ErrorLevel = Object.freeze({ Info: "info", Warning: "warning", Error: "error", Fatal: "fatal" });
@@ -18,7 +134,7 @@
       return (ch === "x" ? r : r & 3 | 8).toString(16);
     });
   }
-  function lget(k) {
+  function lget2(k) {
     var _a, _b;
     try {
       return (_b = (_a = globalThis.localStorage) == null ? void 0 : _a.getItem(k)) != null ? _b : null;
@@ -26,7 +142,7 @@
       return null;
     }
   }
-  function lset(k, v) {
+  function lset2(k, v) {
     var _a;
     try {
       (_a = globalThis.localStorage) == null ? void 0 : _a.setItem(k, v);
@@ -71,32 +187,53 @@
     if ((_a = state.config) == null ? void 0 : _a.debug) console.debug("[MoonForge]", ...args);
   }
   function getDistinctId() {
-    let id = lget(DISTINCT_ID_KEY);
+    let id = lget2(DISTINCT_ID_KEY);
     if (!id) {
       id = uuid();
-      lset(DISTINCT_ID_KEY, id);
+      lset2(DISTINCT_ID_KEY, id);
     }
     return id;
   }
   function setDistinctId(id) {
-    if (id) lset(DISTINCT_ID_KEY, id);
+    if (id) lset2(DISTINCT_ID_KEY, id);
   }
   function getSessionId() {
     var _a;
     const now = Date.now();
-    const last = parseInt((_a = lget(SESSION_TS_KEY)) != null ? _a : "0", 10);
-    let id = lget(SESSION_ID_KEY);
+    const last = parseInt((_a = lget2(SESSION_TS_KEY)) != null ? _a : "0", 10);
+    let id = lget2(SESSION_ID_KEY);
     if (!id || !last || now - last > SESSION_TIMEOUT_MS) {
       id = uuid();
-      lset(SESSION_ID_KEY, id);
+      lset2(SESSION_ID_KEY, id);
     }
-    lset(SESSION_TS_KEY, String(now));
+    lset2(SESSION_TS_KEY, String(now));
     return id;
   }
+  function prepareSessionStart() {
+    var _a;
+    const now = Date.now();
+    const last = parseInt((_a = lget2(SESSION_TS_KEY)) != null ? _a : "0", 10);
+    let id = lget2(SESSION_ID_KEY);
+    let previous_session_id;
+    if (!id || !last) {
+      id = uuid();
+    } else if (now - last > SESSION_TIMEOUT_MS) {
+      previous_session_id = id;
+      id = uuid();
+    }
+    lset2(SESSION_ID_KEY, id);
+    lset2(SESSION_TS_KEY, String(now));
+    if (previous_session_id) lset2(PREV_SESSION_ID_KEY, previous_session_id);
+    const data = { session_id: id, ...collectClientContext() };
+    if (previous_session_id) data.previous_session_id = previous_session_id;
+    return data;
+  }
   function resetSession() {
+    const prev = lget2(SESSION_ID_KEY);
+    if (prev) lset2(PREV_SESSION_ID_KEY, prev);
     const id = uuid();
-    lset(SESSION_ID_KEY, id);
-    lset(SESSION_TS_KEY, String(Date.now()));
+    lset2(SESSION_ID_KEY, id);
+    lset2(SESSION_TS_KEY, String(Date.now()));
     return id;
   }
   function getUserProps() {
@@ -172,8 +309,10 @@
     }
   }
   async function postEvent(payload, { beacon = false } = {}) {
+    var _a;
     if (!state.config) return false;
-    const bufferable = !identified && !beacon && payload && payload.type !== "identify";
+    const eventName = (_a = payload == null ? void 0 : payload.payload) == null ? void 0 : _a.name;
+    const bufferable = !identified && !beacon && payload && payload.type !== "identify" && eventName !== "session_start" && eventName !== "session_end";
     if (bufferable) {
       if (pendingEvents.length < MAX_BUFFERED_EVENTS) {
         pendingEvents.push({ payload, opts: { beacon } });
@@ -252,14 +391,61 @@
     }
     return true;
   }
+  function flatRow(data, prefix, rows, max = 3) {
+    rows.slice(0, max).forEach((row, i) => {
+      const n = i + 1;
+      if (row.type != null) data[`${prefix}_${n}_type`] = row.type;
+      if (row.before != null) data[`${prefix}_${n}_before`] = row.before;
+      if (row.after != null) data[`${prefix}_${n}_after`] = row.after;
+    });
+  }
   function trackEvent(name, data = {}, opts = {}) {
     if (!ensure()) return void 0;
     return postEvent({ type: "event", payload: { ...collectAutoFields(), name, data: { ...getUserProps(), ...data } } }, opts);
+  }
+  function trackSessionStart(extra = {}) {
+    if (!ensure()) return void 0;
+    return trackEvent("session_start", { ...prepareSessionStart(), ...extra });
   }
   function trackScreenView(name) {
     if (!ensure()) return void 0;
     const auto = collectAutoFields();
     return postEvent({ type: "event", payload: { ...auto, name: "screen_view", title: name || auto.title, data: { ...getUserProps(), screen_name: name } } });
+  }
+  function trackEconomyTransaction({ reason, inputs = [], outputs = [] } = {}) {
+    const data = { reason };
+    flatRow(data, "input", inputs);
+    flatRow(data, "output", outputs);
+    return trackEvent("economy_transaction", data);
+  }
+  function trackIapInitiated({ product_id, price, currency, product_name, store: store2 } = {}) {
+    const data = { product_id, price, currency };
+    if (product_name != null) data.product_name = product_name;
+    if (store2 != null) data.store = store2;
+    return trackEvent("iap_initiated", data);
+  }
+  function trackIapCompleted({ product_id, price, currency, transaction_id, product_name, store: store2 } = {}) {
+    const data = { product_id, price, currency, transaction_id };
+    if (product_name != null) data.product_name = product_name;
+    if (store2 != null) data.store = store2;
+    return trackEvent("iap_completed", data);
+  }
+  function trackAdStarted({ ad_type, placement, provider, ...rest } = {}) {
+    const data = { ad_type, placement, ...rest };
+    if (provider != null) data.provider = provider;
+    return trackEvent("ad_started", data);
+  }
+  function trackAdCompleted({ ad_type, placement, watched_fraction, provider, rewarded, duration_seconds, ...rest } = {}) {
+    const data = { ad_type, placement, watched_fraction, ...rest };
+    if (provider != null) data.provider = provider;
+    if (rewarded != null) data.rewarded = rewarded;
+    if (duration_seconds != null) data.duration_seconds = duration_seconds;
+    return trackEvent("ad_completed", data);
+  }
+  function trackAdImpression({ ad_type, placement, provider, ...rest } = {}) {
+    const data = { ad_type, placement, ...rest };
+    if (provider != null) data.provider = provider;
+    return trackEvent("ad_impression", data);
   }
   function identify(userId, traits = {}) {
     if (!ensure()) return void 0;
@@ -457,7 +643,7 @@
     if (globalThis.__mfSessionActive) return;
     globalThis.__mfSessionActive = true;
     sessionStartedAt = Date.now();
-    trackEvent("session_start", { session_id: getSessionId() });
+    trackSessionStart();
   }
   function endSpan() {
     if (!globalThis.__mfSessionActive) return;
@@ -522,7 +708,14 @@
   var MoonForgeAnalytics = {
     init: init2,
     trackEvent,
+    trackSessionStart,
     trackScreenView,
+    trackEconomyTransaction,
+    trackIapInitiated,
+    trackIapCompleted,
+    trackAdStarted,
+    trackAdCompleted,
+    trackAdImpression,
     identify,
     setUserProperty,
     removeUserProperty,

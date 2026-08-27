@@ -5,7 +5,7 @@ import * as a from '../../skills/moonforge-implement/assets/moonforge-sdk/analyt
 
 function lastBody(fetchMock) { return JSON.parse(fetchMock.mock.calls.at(-1)[1].body); }
 
-beforeEach(() => { core.resetAll(); core.init({ gameId: 'g-1', appVersion: '3.1.4' }); });
+beforeEach(() => { core.resetAll(); core.init({ gameId: 'g-1', appVersion: '3.1.4' }); core.markIdentified(); });
 
 describe('analytics', () => {
   it('trackEvent posts an event envelope with auto fields + merged user props', async () => {

@@ -1,7 +1,10 @@
 // MoonForge Web SDK — core: config, identity, session, transport. Zero deps.
+import { collectClientContext } from './context-capture.js';
+
 const DISTINCT_ID_KEY = 'mf_distinct_id';
 const SESSION_ID_KEY = 'mf_session_id';
 const SESSION_TS_KEY = 'mf_session_ts';
+const PREV_SESSION_ID_KEY = 'mf_prev_session_id';
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_ENDPOINT = 'https://collector.moonforge.co';
 
@@ -60,7 +63,40 @@ export function getSessionId() {
   lset(SESSION_TS_KEY, String(now));
   return id;
 }
-export function resetSession() { const id = uuid(); lset(SESSION_ID_KEY, id); lset(SESSION_TS_KEY, String(Date.now())); return id; }
+
+/**
+ * Builds locked session_start payload: session_id, optional previous_session_id
+ * after inactivity timeout, plus client context (timezone, attribution, geo hints).
+ */
+export function prepareSessionStart() {
+  const now = Date.now();
+  const last = parseInt(lget(SESSION_TS_KEY) ?? '0', 10);
+  let id = lget(SESSION_ID_KEY);
+  let previous_session_id;
+
+  if (!id || !last) {
+    id = uuid();
+  } else if (now - last > SESSION_TIMEOUT_MS) {
+    previous_session_id = id;
+    id = uuid();
+  }
+  lset(SESSION_ID_KEY, id);
+  lset(SESSION_TS_KEY, String(now));
+  if (previous_session_id) lset(PREV_SESSION_ID_KEY, previous_session_id);
+
+  const data = { session_id: id, ...collectClientContext() };
+  if (previous_session_id) data.previous_session_id = previous_session_id;
+  return data;
+}
+
+export function resetSession() {
+  const prev = lget(SESSION_ID_KEY);
+  if (prev) lset(PREV_SESSION_ID_KEY, prev);
+  const id = uuid();
+  lset(SESSION_ID_KEY, id);
+  lset(SESSION_TS_KEY, String(Date.now()));
+  return id;
+}
 
 export function getUserProps() { return { ...state.userProps }; }
 export function setUserProp(k, v) { state.userProps = { ...state.userProps, [k]: v }; }
@@ -139,7 +175,9 @@ export async function postEvent(payload, { beacon = false } = {}) {
 
   // Beacon events fire at page teardown - buffering one loses it outright.
   // Identify itself must never be buffered; it is what releases the buffer.
-  const bufferable = !identified && !beacon && payload && payload.type !== 'identify';
+  const eventName = payload?.payload?.name;
+  const bufferable = !identified && !beacon && payload && payload.type !== 'identify'
+    && eventName !== 'session_start' && eventName !== 'session_end';
 
   if (bufferable) {
     if (pendingEvents.length < MAX_BUFFERED_EVENTS) {
