@@ -40,6 +40,7 @@ results that are assigned or passed onward).
   `captureNetworkError`, `setUser`, `setGameState`, ...): delete the statement
   line(s). If a surrounding block becomes empty (e.g. a now-empty `try/catch`
   or handler), clean it up and show that in the diff.
+- Optional: clear web SDK attribution keys `mf_attr_first_*` from `localStorage`.
 - Delete `.moonforge.json`.
 - Leave every flagged value-using reference in place; list them at the end.
 

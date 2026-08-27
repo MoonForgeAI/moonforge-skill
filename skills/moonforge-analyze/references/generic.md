@@ -66,6 +66,7 @@ SDK Status — with additions that matter downstream:
 - **Economy Resources** — currency/item types found, or "none" / "unknown".
 - **Accounts** — yes/no (same signal as player identity below).
 - **UI Surfaces** — major menus/modals/store beyond scene/screen flow.
+- **Instrumentation Targets** — table of file + hook + suggested locked/custom events (IAP, ads, economy, attribution, actions).
 - **Language and idiom** — the generated SDK is written in it, so note the
   language, its test framework (if any), and where the project keeps source.
 - **Player identity / Accounts** — does the game have accounts, or does it need

@@ -144,17 +144,31 @@ from the locked catalog — zero deviation. Assume **client-only** capture for
 geo, attribution, and all game events (no server enrichment). Wait for user to
 select tiers.
 
+Build an **instrumentation manifest** from the recommendations + analyze
+targets — one row per event to implement:
+
+```
+| Tier | Event | File | Hook | Required props |
+```
+
+Pass `platform`, selected tiers, and this manifest to implement.
+
 ### Step 6: Implement
 
-**REQUIRED SUB-SKILL:** Use moonforge-implement, passing `platform`
+**REQUIRED SUB-SKILL:** Use moonforge-implement, passing `platform` and the
+**instrumentation manifest**
 
-For each event in selected tiers, find the right file and method, write the TrackEvent call, and show diff for approval.
+Work in order: (1) SDK client context on `session_start` if missing, (2) locked
+revenue/economy events from manifest, (3) game actions. For each row, find the
+file and method, write the TrackEvent call (or SDK helper), show diff for approval.
 
 ### Step 7: Verify
 
-**REQUIRED SUB-SKILL:** Use moonforge-verify, passing `platform`
+**REQUIRED SUB-SKILL:** Use moonforge-verify, passing `platform`, selected tiers,
+and the instrumentation manifest
 
-Run compilation check, static analysis, and present event inventory.
+Run compilation check, static analysis, telemetry taxonomy checks
+(`telemetry-checks.md`), and present event inventory.
 
 ## Quick Reference
 

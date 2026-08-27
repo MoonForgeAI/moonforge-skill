@@ -31,6 +31,13 @@ the git tag are kept in lockstep.
   generic SDKs.
 - Implement + SDK contract point at the locked catalog and forbid renaming
   session/economy/revenue events.
+- **Web SDK** now captures client context on `session_start` (timezone,
+  attribution, first-touch) and exposes locked helpers (`trackEconomyTransaction`,
+  `trackIap*`, `trackAd*`).
+- **Implement** adds `telemetry-implement.md` hook recipes; **verify** adds
+  `telemetry-checks.md` tier/taxonomy validation; **analyze** outputs
+  instrumentation targets; **orchestrator** passes an instrumentation manifest
+  through implement → verify.
 
 ## [1.4.0] — 2026-08-21
 

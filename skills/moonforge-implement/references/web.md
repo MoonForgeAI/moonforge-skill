@@ -37,9 +37,16 @@ means `appVersion` is silently absent from every event.
 
 ## 3. Instrument events (parity with Unity)
 Analytics — `MoonForgeAnalytics`:
-`trackEvent(name, data)`, `trackScreenView(name)`, `identify(userId, traits)`,
-`setUserProperty(k, v)`, `removeUserProperty(k)`, `clearUserProperties()`,
-`getDistinctId()`, `getSessionId()`, `reset()`, `flush()`.
+`trackEvent(name, data)`, `trackSessionStart()`, `trackScreenView(name)`,
+`trackEconomyTransaction({ reason, inputs, outputs })`,
+`trackIapInitiated(...)`, `trackIapCompleted(...)`,
+`trackAdStarted(...)`, `trackAdCompleted(...)`, `trackAdImpression(...)`,
+`identify(userId, traits)`, `setUserProperty(k, v)`, `removeUserProperty(k)`,
+`clearUserProperties()`, `getDistinctId()`, `getSessionId()`, `reset()`, `flush()`.
+
+`session_start` on init includes client context (`timezone`, attribution from URL,
+persisted first-touch). See `telemetry-implement.md` for hook recipes.
+
 Errors — `MoonForgeErrorTracker`:
 `setUser(userId, tags)`, `clearUser()`, `setGameState({sceneName,gameMode,levelId})`,
 `setGameStateData(k, v)`, `addBreadcrumb(msg, {type,level,category,data})`,

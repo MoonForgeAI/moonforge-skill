@@ -33,8 +33,12 @@ tools (`gtag`, `plausible`, `posthog`, `mixpanel`).
 
 ## 6. Infer genre and output the game profile
 Use the SAME profile format as Unity (Game ID, Genre, Scenes/flow, Core Systems,
-Monetization, Economy Resources, Accounts, UI Surfaces, Existing Analytics,
-SDK Status), adapted to web (framework instead of Unity version).
+Monetization, Economy Resources, Accounts, UI Surfaces, **Instrumentation Targets**,
+Existing Analytics, SDK Status), adapted to web (framework instead of Unity version).
+
+Build **Instrumentation Targets** while scanning: shop/checkout handlers, ad SDK
+callbacks, currency mutations, `window.location.search` / router entry for
+attribution, level/score managers for game actions.
 
 ## Common mistakes
 - Scanning `node_modules/` or `dist/` (ignore).

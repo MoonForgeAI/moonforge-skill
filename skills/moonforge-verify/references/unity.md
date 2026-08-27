@@ -133,17 +133,12 @@ If rate-limited, events return HTTP 429. The SDK queues and retries automaticall
 ## Verification Results
 
 ### Compilation: [PASS/FAIL]
-[details of any errors]
+...
 
-### Static Analysis: [PASS/FAIL]
-- TrackEvent in Update loops: [PASS/issues found]
-- Missing imports: [PASS/issues found]
-- Duplicate auto-collected properties: [PASS/issues found]
+### Telemetry taxonomy: [PASS/FAIL]
+(see references/telemetry-checks.md)
 
 ### Event Inventory: [N analytics events + M error tracking calls across K files]
-
-### Collector: [PASS/SKIP]
-[ping result or skipped reason]
 ```
 
 ## Common Mistakes

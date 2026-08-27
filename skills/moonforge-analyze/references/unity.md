@@ -41,7 +41,14 @@ find Assets/ -name "*.cs" -type f
 
 Read each to understand what the game does — don't just list them.
 
-While reading, note for the profile:
+While scanning, build **Instrumentation Targets** rows for implement:
+- **IAP** — `ProcessPurchase`, `IStoreListener`, shop buy handlers
+- **Ads** — rewarded/interstitial show/complete callbacks
+- **Economy** — wallet/inventory mutate methods (suggest `economy_transaction` + `reason`)
+- **Attribution** — launch/deep-link entry (`Application.absoluteURL`, first scene boot)
+- **Actions** — level/round/quest win/fail handlers discovered in core systems
+
+```
 - **Monetization** — IAP only, ads only, both, or none
 - **Economy resources** — currency/item type names found (or "unknown" / "none")
 - **Accounts** — login/auth/profile present? yes/no
@@ -111,6 +118,11 @@ Present findings to user as structured summary:
 **Network Requests:** [scripts using UnityWebRequest, or "None"]
 **SDK Status:** [installed/not installed]
 **SDK Config:** [key settings if MoonForgeSettings found]
+
+**Instrumentation Targets:** (for implement — file + method + suggested events)
+| System | File | Method / hook | Suggested events |
+|--------|------|---------------|------------------|
+| [IAP / ads / economy / attribution / actions] | | | |
 ```
 
 ## Common Mistakes

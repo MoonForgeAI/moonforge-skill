@@ -33,3 +33,5 @@ Verify that instrumented analytics events compile without errors and (optionally
    - Unity → `references/unity.md`
    - Web → `references/web.md`
    - Generic → `references/generic.md`
+3. Run **telemetry taxonomy checks** from `references/telemetry-checks.md` in
+   addition to platform-specific steps.

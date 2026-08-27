@@ -60,3 +60,6 @@ a property — never the event name. Game **action** names may vary by game.
    referrer, persisted first-touch) on the device and attach the locked keys
    from `telemetry-model.md` on `session_start`. Do not rely on collector
    enrichment for these fields.
+
+6. **Hook recipes:** Follow `references/telemetry-implement.md` for economy,
+   revenue, and SDK helper patterns per platform.

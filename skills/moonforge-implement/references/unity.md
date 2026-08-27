@@ -175,7 +175,9 @@ enum BreadcrumbLevel { Debug, Info, Warning, Error, Fatal }
 
 ## Implementation Process
 
-For each event in the selected tiers:
+For each row in the **instrumentation manifest** (or each event in selected tiers):
+
+See `references/telemetry-implement.md` for locked economy/revenue recipes.
 
 ### 1. Find the Right File and Method
 
