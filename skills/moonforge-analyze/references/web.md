@@ -19,7 +19,13 @@ Record the flow (MainMenu → Game → GameOver).
 ## 4. Find core systems
 Grep for game loop (`requestAnimationFrame`, `update(`, `tick(`), input handlers,
 score/level managers (`score`, `level`, `wave`), shop/IAP (`shop`, `store`, `purchase`,
-`checkout`), UI/HUD, save/load (`localStorage`, `save`).
+`checkout`), ads (`ad`, `rewarded`, `interstitial`, ad SDKs), economy
+(`coin`, `gold`, `gem`, `currency`, `inventory`), UI/HUD/modals/popups, accounts
+(`login`, `auth`, `account`, `user`), save/load (`localStorage`, `save`).
+
+Note for the profile: **Monetization** (none / IAP / ads / both), **Economy
+Resources**, **Accounts** (yes/no), **UI Surfaces** (menus/modals/store beyond
+scene/route flow).
 
 ## 5. Check existing analytics
 Look for an existing MoonForge SDK (`MoonForgeAnalytics`, `moonforge-sdk`), or other
@@ -27,7 +33,8 @@ tools (`gtag`, `plausible`, `posthog`, `mixpanel`).
 
 ## 6. Infer genre and output the game profile
 Use the SAME profile format as Unity (Game ID, Genre, Scenes/flow, Core Systems,
-Existing Analytics, SDK Status), adapted to web (framework instead of Unity version).
+Monetization, Economy Resources, Accounts, UI Surfaces, Existing Analytics,
+SDK Status), adapted to web (framework instead of Unity version).
 
 ## Common mistakes
 - Scanning `node_modules/` or `dist/` (ignore).

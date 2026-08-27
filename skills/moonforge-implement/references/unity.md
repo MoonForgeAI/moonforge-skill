@@ -269,12 +269,16 @@ public void OnBossFightStart(string bossId)
 
 - Use actual variable names from the game code, not hardcoded strings
 - Cast to appropriate types: strings for IDs, ints/floats for numeric values
-- Keep property count to 3-5 per event
+- Keep property count to 3-5 per **action** event; economy/revenue use the fixed schemas in `moonforge-events/references/telemetry-model.md`
 - Use `snake_case` for property keys
+- **Session / economy / revenue:** copy event names and required keys from `telemetry-model.md` verbatim — zero deviation
 - **Never add these as custom properties** — the SDK auto-collects them on every event: `game`, `id` (user ID), `screen` (resolution), `language`, `url` (current scene), `title` (scene name), `referrer` (previous scene), `timestamp`, `appVersion`
 
 ## Common Mistakes
 
+- Renaming session, economy, or revenue events (e.g. `purchase_complete`, `resource_spent`, `sessionStart`) or their required prop keys
+- Using the economy `reason` as the TrackEvent name instead of `economy_transaction`
+- Assuming geolocation or UTM/attribution will be added server-side — capture on the client and send locked keys from `telemetry-model.md`
 - Adding TrackEvent in Update() or FixedUpdate() (fires every frame)
 - Tracking in both the event source and the event listener
 - Hardcoding property values instead of using game variables

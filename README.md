@@ -1,6 +1,6 @@
 # MoonForge Skill
 
-**Version 1.4.0**
+**Version 1.5.0**
 
 An interactive skill package that instruments any game with
 [MoonForge](https://moonforge.co) analytics and error tracking — whatever engine
@@ -35,7 +35,7 @@ never writes a tracking call against an SDK that is not in the project.
 |-------|---------|---------|
 | **Orchestrator** | `/moonforge` | Full guided flow: analyze → events → implement → verify |
 | **Analyze** | `/moonforge:analyze` | Scan project structure, scenes, and scripts |
-| **Events** | `/moonforge:events` | Recommend events by priority tier (P0-P3) |
+| **Events** | `/moonforge:events` | Recommend events by priority tier (P0–P3); locked session/economy/revenue names |
 | **Implement** | `/moonforge:implement` | Write the tracking calls into your source |
 | **Verify** | `/moonforge:verify` | Check compilation and collector endpoint |
 | **Uninstall** | `/moonforge-uninstall` | Remove all MoonForge code from a game (SDK, calls, config), optional server deregistration |
@@ -141,7 +141,7 @@ skill/command — the `/moonforge` slash-command syntax below is Claude Code's.)
 The skill will:
 1. Detect your engine and ask for your MoonForge game ID (or read it from `.moonforge.json` if present)
 2. Scan your game to understand its structure
-3. Recommend events organized by priority (P0 = auto-tracked, P1 = core loop, P2 = engagement, P3 = advanced)
+3. Recommend events organized by priority (P0 = Core auto-tracked, P1 = revenue + game actions, P2 = economy + UI, P3 = engagement/experiments). Session, economy, and revenue names are locked across every game.
 4. Let you pick which tiers to implement
 5. Write the actual tracking calls into your source (with diff approval)
 6. Verify compilation and event delivery
@@ -169,11 +169,16 @@ If you already know your game ID (useful when another agent is doing the work):
 
 | Tier | What | Examples |
 |------|------|---------|
-| **P0** | Session health (auto-tracked by the SDK on every platform) | session_start, session_end, scene changes |
-| **P1** | Core loop events | level_completed, player_died, game_over |
-| **P2** | Engagement events | tutorial_step, achievement_unlocked, settings_changed |
-| **P3** | Advanced analytics | ad_impression, iap_completed, ab_variant_assigned |
+| **P0** | Core — session health (auto-tracked by the SDK on every platform). Locked names. | `session_start`, `session_end`, scene changes |
+| **P1** | Revenue (locked names) + atomic game actions | `iap_completed`, `ad_completed`, `level_completed`, `player_died` |
+| **P2** | Game economy (locked name) + UI gaps beyond auto screens | `economy_transaction`, store/modal screen views |
+| **P3** | Engagement / experiments (optional) | `tutorial_step_completed`, `achievement_unlocked`, `ab_variant_assigned` |
 
+Session, economy, and revenue event names and required property keys are
+**immutable** across every game — see
+`skills/moonforge-events/references/telemetry-model.md`. All of geo,
+attribution (UTM/click IDs/first-touch), and game events are captured
+**client-side** — do not assume server enrichment.
 ## SDK API Reference (Unity)
 
 For web, see `skills/moonforge-implement/references/web.md`. For any other engine,

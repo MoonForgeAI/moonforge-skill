@@ -69,6 +69,13 @@ separate usable data from a pile of anonymous events.
 Then instrument the selected events, one diff per change with approval, exactly
 as on the other platforms.
 
+**Locked catalog:** Session (`session_start` / `session_end`), economy
+(`economy_transaction`), and revenue (`iap_*` / `ad_*`) names and required
+props must match `moonforge-events/references/telemetry-model.md` exactly —
+never invent aliases. Economy reason is a property, not the event name.
+Capture geo/timezone and UTM/attribution on the client (locked keys on
+`session_start`); do not assume collector enrichment.
+
 ## 4. Test what you generated
 
 Per `sdk-contract.md` — envelope shape, pre-identify buffering, and that a

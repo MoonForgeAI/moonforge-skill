@@ -6,6 +6,32 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.5.0] — 2026-08-27
+
+### Changed
+
+- **Revenue-first event tiers.** P0 = Core (auto session); P1 = Revenue + game
+  actions; P2 = Economy + UI gaps; P3 = optional engagement/experiments.
+  IAP/ads moved from optional P3 to required P1 when monetization exists.
+- **Locked cross-game event names** for session, economy, and revenue (zero
+  deviation). Canonical registry:
+  `skills/moonforge-events/references/telemetry-model.md`. Economy is always
+  `economy_transaction` with `reason` as a property; revenue uses only
+  `iap_initiated` / `iap_completed` / `ad_started` / `ad_completed` /
+  `ad_impression`.
+- **Client-only telemetry.** Skills assume no server enrichment: geolocation,
+  timezone, UTM/click IDs, and first-touch attribution are captured on the
+  device and sent (locked keys on `session_start`). Game events are always
+  client-instrumented.
+- **Game action discovery** replaces genre-only recipe dumps; genre tables are
+  seeds, not a closed set.
+- **Analyze profile** now includes Monetization, Economy Resources, Accounts,
+  and UI Surfaces so events/implement can tailor recommendations.
+- P0 copy corrected: session lifecycle is auto on Unity, web, **and** generated
+  generic SDKs.
+- Implement + SDK contract point at the locked catalog and forbid renaming
+  session/economy/revenue events.
+
 ## [1.4.0] — 2026-08-21
 
 ### Changed

@@ -1,20 +1,22 @@
 ---
 name: moonforge-analyze
 description: Use when scanning a game project on any engine to understand its structure, scenes, scripts, and existing analytics before instrumenting events
-version: 1.4.0
+version: 1.5.0
 ---
 
 # MoonForge Analyze
 
 ## Overview
 
-Scan a Unity project to build a game profile — scene flow, key scripts, game genre, and existing analytics calls. This profile drives event recommendations in moonforge-events.
+Scan a game project to build a game profile — scene flow, key scripts, game
+genre, monetization, economy resources, accounts, UI surfaces, and existing
+analytics calls. This profile drives event recommendations in moonforge-events.
 
 ## When to Use
 
-- Before recommending analytics events for a Unity game
+- Before recommending analytics events for a game on any engine
 - When `/moonforge` orchestrator calls this as first step
-- When you need to understand a Unity project's structure
+- When you need to understand a game project's structure
 
 ## Platform routing
 

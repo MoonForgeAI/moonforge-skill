@@ -32,12 +32,20 @@ find Assets/ -name "*.cs" -type f
 **Priority scripts to read:**
 - Files containing `GameManager`, `LevelManager`, `PlayerController`
 - Files with `Shop`, `Store`, `Purchase`, `IAP` in the name
+- Files with `Ad`, `Ads`, `Rewarded`, `Interstitial`, `AdMob`, `UnityAds` in the name
+- Files containing currency/economy: `Coin`, `Gold`, `Gem`, `Currency`, `Inventory`, `Wallet`
 - Files containing `Score`, `Achievement`, `Leaderboard`
 - Files with `Tutorial`, `Onboarding` in the name
-- Files containing `UI`, `Menu`, `HUD`, `Canvas`
-- Files with `Save`, `Load`, `Progress` in the name
+- Files containing `UI`, `Menu`, `HUD`, `Canvas`, `Modal`, `Popup`
+- Files with `Save`, `Load`, `Progress`, `Login`, `Account`, `Auth` in the name
 
 Read each to understand what the game does — don't just list them.
+
+While reading, note for the profile:
+- **Monetization** — IAP only, ads only, both, or none
+- **Economy resources** — currency/item type names found (or "unknown" / "none")
+- **Accounts** — login/auth/profile present? yes/no
+- **UI surfaces** — major menus, modals, store/payment overlays beyond scenes
 
 ### 4. Check Existing Analytics
 
@@ -94,6 +102,10 @@ Present findings to user as structured summary:
 **Genre:** [inferred]
 **Scenes:** [ordered list with flow arrows]
 **Core Systems:** [list of key MonoBehaviours with descriptions]
+**Monetization:** [none | IAP | ads | both]
+**Economy Resources:** [list of currencies/items detected, or "none" / "unknown"]
+**Accounts:** [yes | no]
+**UI Surfaces:** [major menus/modals/store beyond scenes, or "scenes only"]
 **Existing Analytics:** [any TrackEvent calls found, or "None"]
 **Existing Error Tracking:** [any CaptureException/AddBreadcrumb calls, or "None"]
 **Network Requests:** [scripts using UnityWebRequest, or "None"]

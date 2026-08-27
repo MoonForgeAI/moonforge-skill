@@ -30,7 +30,7 @@ generate path.
 | `track_screen_view(name)` | Emits `screen_view` with `{ screen_name }`. |
 | `identify(userId, traits)` | Sets the distinct id, emits `identify`, releases the pre-identify buffer. |
 | `set_user_property(k, v)` | Persistent property merged into every later event's `data`. |
-| **Session lifecycle** | `session_start` on init. `session_end` on the engine's quit hook with `{ session_id, duration_seconds }`. A fresh session after an inactivity timeout (default 1800s) carrying `previous_session_id`. |
+| **Session lifecycle** | Locked names only: `session_start` on init; `session_end` on the engine's quit hook with `{ session_id, duration_seconds }`; re-engagement after inactivity timeout (default 1800s) is again `session_start` with `previous_session_id`. Never rename (see `moonforge-events/references/telemetry-model.md`). On `session_start`, attach **client-sourced** context when available: `timezone`, geo (`country`/`region`/`city`), and attribution (`utm_*`, `gclid`/`fbclid`, first-touch from local storage). Do **not** assume the collector enriches these. |
 | **Pre-identify buffering** | Events emitted before `identify` are held (cap 50) and rewritten to the real id when it lands. Flush anonymously after ~10s if identify never comes — losing them is worse than an anonymous id. Without this, everything before login is stranded: it is what made two thirds of one real game's players look like single-day visitors. |
 | **Persistent distinct id** | Created once, stored on disk, reused across launches. Never derived from a device fingerprint or IP. |
 | **Transport** | Off the main thread, 2–5s timeout, correct User-Agent, every error swallowed. |

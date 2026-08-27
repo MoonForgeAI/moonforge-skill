@@ -1,7 +1,7 @@
 ---
 name: moonforge
 description: Use when instrumenting a game of any engine with MoonForge analytics and error events — analyzes the game, recommends events, generates the SDK into the project, writes the tracking calls, and verifies the setup
-version: 1.4.0
+version: 1.5.0
 ---
 
 # MoonForge Analytics Instrumentation
@@ -9,8 +9,12 @@ version: 1.4.0
 ## Overview
 
 Interactive agent that guides game developers through analytics instrumentation,
-whatever engine they use. Analyzes the game, recommends events by priority tier,
+whatever engine they use. Analyzes the game, recommends events by priority tier
+(P0 Core auto; P1 Revenue + game actions; P2 Economy + UI; P3 engagement),
 writes the tracking calls, and verifies everything works.
+
+Session, economy, and revenue use **locked event names** shared across every
+game — see `moonforge-events/references/telemetry-model.md`.
 
 MoonForge's collector is a plain HTTP endpoint. Anything that can send an HTTP
 POST can be instrumented. Every project ends up with an SDK inside it: web
@@ -134,7 +138,11 @@ Scan the project and present the game profile to the user.
 
 **REQUIRED SUB-SKILL:** Use moonforge-events, passing `platform`
 
-Present tiered event recommendations. Wait for user to select tiers.
+Present tiered event recommendations (P0 Core auto; P1 Revenue + actions; P2
+Economy + UI; P3 optional engagement). Session / economy / revenue names come
+from the locked catalog — zero deviation. Assume **client-only** capture for
+geo, attribution, and all game events (no server enrichment). Wait for user to
+select tiers.
 
 ### Step 6: Implement
 
@@ -291,17 +299,24 @@ before instrumenting — bundled on web, generated on Unity and everywhere else 
 and all of them implement the session lifecycle. Either way the user
 instruments P1 and up, never P0.
 
-The SDK automatically tracks when initialized:
+The SDK automatically tracks when initialized (locked session names — never rename):
 - `session_start` — on init with `{ session_id }`
 - `session_end` — on shutdown with `{ session_id, duration_seconds }`
-- Session re-engagement after `sessionTimeoutSeconds` of inactivity
-- Scene changes via `TrackScreenView` on `SceneManager.sceneLoaded`
+- Session re-engagement after `sessionTimeoutSeconds` of inactivity (same `session_start` name + `previous_session_id`)
+- Scene changes via `TrackScreenView` on `SceneManager.sceneLoaded` (Unity) / equivalent elsewhere
 - Unhandled exceptions, Unity log errors, native crashes (separate error pipeline)
 
 **Auto-collected fields on EVERY event (never duplicate in custom properties):**
 `game`, `id` (user UUID), `screen` (resolution), `language`, `url` (current scene), `title` (scene name), `referrer` (previous scene), `timestamp`, `appVersion` (the game's own version, not this skill's)
 
-## .moonforge.json Format
+**Manual instrumentation uses locked names for economy and revenue** — always
+`economy_transaction` and the `iap_*` / `ad_*` set in
+`moonforge-events/references/telemetry-model.md`.
+
+**Client-only:** geolocation, timezone, UTM/click IDs, and first-touch
+attribution must be captured in the game/SDK on device and sent on
+`session_start` (locked keys in `telemetry-model.md`). Do not assume collector
+enrichment.## .moonforge.json Format
 
 ```json
 {

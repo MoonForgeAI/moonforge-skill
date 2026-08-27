@@ -51,5 +51,11 @@ Place calls at the right site per framework (e.g. Phaser `Scene.create()` for
 `trackEvent('level_complete', {...})`). Show a diff for each change and get approval,
 exactly like the Unity flow.
 
+**Locked catalog:** Session (`session_start` / `session_end`), economy
+(`economy_transaction`), and revenue (`iap_*` / `ad_*`) names and required
+props must match `moonforge-events/references/telemetry-model.md` exactly —
+never invent aliases. Capture geo/timezone and UTM/attribution on the client
+(locked keys on `session_start`); do not assume collector enrichment.
+
 ## 4. Write `.moonforge.json` if missing
 `{ "gameId": "<GAME_ID>", "gameName": "<name>", "sdkConfigured": true }`.
