@@ -11,17 +11,22 @@ the git tag are kept in lockstep.
 ### Changed
 
 - **Package renamed `@moonforge/skill` → `@moonforge/moonforge-skill`.** With
-  1.5.1's `bin` entry actually working, `npx @moonforge/skill <agent>` still
-  didn't reliably resolve on Windows: the bin command (`moonforge-skill`)
-  didn't match the package's own unscoped name (`skill`), and npx's
-  same-name-as-package resolution path — the one that makes `npx cowsay` or
-  `npx @11ty/eleventy` just work everywhere — doesn't cover that mismatch
-  consistently across platforms. Renaming so the unscoped package name equals
-  the bin name removes the ambiguity entirely rather than requiring everyone
-  to type `npx --package=@moonforge/skill moonforge-skill <agent>`.
-  `@moonforge/skill` is not unpublished — 1.5.0 and 1.5.1 stay on the
-  registry as-is — but it will be deprecated pointing at the new name, and
-  all install instructions now use `@moonforge/moonforge-skill`.
+  1.5.1's `bin` entry actually working, an apparent `npx @moonforge/skill
+  <agent>` failure on Windows was initially suspected to be a resolution
+  problem caused by the bin command (`moonforge-skill`) not matching the
+  package's own unscoped name (`skill`). That turned out not to be the real
+  cause — the actual failure was an artifact of running `npx` from inside a
+  local clone of this repo, where npx resolves against the checkout's own
+  `package.json`/`node_modules/.bin` instead of installing fresh from the
+  registry; it works correctly from any other directory, and always did.
+  Renaming to make the unscoped package name equal the bin name is kept
+  anyway, on its own merits: it puts installation on the same well-trodden
+  npx path as `npx cowsay` or `npx @11ty/eleventy`, with no dependence on
+  npx's single-bin-fallback resolution behavior. `@moonforge/skill` (1.5.0,
+  1.5.1) has been unpublished entirely rather than deprecated — both
+  versions existed for under 72 hours with no real-world adoption, and the
+  name is not intended to be reused. All install instructions now use
+  `@moonforge/moonforge-skill`.
 
 ## [1.5.1] — 2026-08-28
 
