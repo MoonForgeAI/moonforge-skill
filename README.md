@@ -88,6 +88,19 @@ directory namespace, not `~/.windsurf`) — so it's available in every
 project, not just the one you're currently in. Same command on macOS,
 Linux, and Windows.
 
+**Using something else, or just running it with no argument?** There's no
+folder we can safely write into on your behalf for a tool we don't know the
+convention for, so instead of guessing it downloads the skill files into
+the current directory:
+
+```bash
+npx @moonforge/skill
+```
+
+This creates `./moonforge-skill/skills/` — copy the skill folder(s) you need
+from there into your tool's own skills/commands directory (see
+[Other AI Tools](#other-ai-tools) below for the general steps).
+
 ### Claude Code (git clone alternative)
 
 If you'd rather not use npx:
@@ -124,7 +137,8 @@ for `moonforge-implement`, an `assets/` folder with the bundled web SDK. If
 your tool has its own skills/commands/rules folder, the general steps are the
 same regardless of exact tool:
 
-1. Clone this repository:
+1. Get the files — either `npx @moonforge/skill` (downloads to
+   `./moonforge-skill/skills/`) or clone this repository:
    ```bash
    git clone https://github.com/MoonForgeAI/moonforge-skill.git
    ```

@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Installs the MoonForge skill files into the right directory for a given
- * coding agent, following the "Agent Skills" (SKILL.md) open standard
- * shared by Claude Code, Codex CLI, Cursor, GitHub Copilot, and Windsurf.
+ * Installs the MoonForge skill files following the "Agent Skills"
+ * (SKILL.md) open standard shared by Claude Code, Codex CLI, Cursor,
+ * GitHub Copilot, and Windsurf.
  *
- * Usage: npx @moonforge/skill <agent>
+ * Usage: npx @moonforge/skill [agent]
  *   agent: claude | codex | cursor | copilot | windsurf
+ *
+ * With a recognized agent, installs straight into that agent's global
+ * skills directory. With no argument, or an agent we don't know the
+ * directory convention for, downloads the skill files into the current
+ * directory instead — for a tool outside the five above, there's no folder
+ * we can safely write into on the user's behalf, so this hands them the
+ * files to place themselves (see README's "Other AI Tools" section).
  *
  * Uses only Node built-ins (fs/os/path) so the same command works
  * identically on macOS, Linux, and Windows — no shell-specific scripting.
@@ -35,19 +42,7 @@ function fail(message) {
 }
 
 const agent = process.argv[2];
-const supportedAgents = Object.keys(AGENT_SKILLS_PATH).join(', ');
-
-if (!agent) {
-  fail(`Usage: npx @moonforge/skill <agent>\n\nSupported agents: ${supportedAgents}`);
-}
-
-const pathSegments = AGENT_SKILLS_PATH[agent];
-
-if (!pathSegments) {
-  fail(`Unknown agent "${agent}".\n\nSupported agents: ${supportedAgents}`);
-}
-
-const destDir = join(homedir(), ...pathSegments);
+const pathSegments = agent ? AGENT_SKILLS_PATH[agent] : undefined;
 const skillsSrc = join(dirname(fileURLToPath(import.meta.url)), '..', 'skills');
 
 if (!existsSync(skillsSrc)) {
@@ -56,13 +51,31 @@ if (!existsSync(skillsSrc)) {
   );
 }
 
-try {
-  mkdirSync(destDir, { recursive: true });
-  cpSync(skillsSrc, destDir, { recursive: true });
-} catch (err) {
-  fail(`Failed to install the MoonForge skill: ${err instanceof Error ? err.message : String(err)}`);
+if (pathSegments) {
+  // Known agent: install straight into its global skills directory.
+  const destDir = join(homedir(), ...pathSegments);
+  try {
+    mkdirSync(destDir, { recursive: true });
+    cpSync(skillsSrc, destDir, { recursive: true });
+  } catch (err) {
+    fail(`Failed to install the MoonForge skill: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  console.log(
+    'MoonForge skill installed successfully. Please return to MoonForge to continue onboarding and implement events.',
+  );
+} else {
+  // No agent, or one we don't know the directory convention for: download
+  // only, into the current directory. We don't know where an unlisted
+  // tool's skills/commands folder lives, so there's nowhere safe to write
+  // on the user's behalf — hand them the files instead.
+  const destDir = join(process.cwd(), 'moonforge-skill');
+  try {
+    mkdirSync(destDir, { recursive: true });
+    cpSync(skillsSrc, join(destDir, 'skills'), { recursive: true });
+  } catch (err) {
+    fail(`Failed to download the MoonForge skill: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  console.log(
+    `MoonForge skill downloaded to ./moonforge-skill/skills — it wasn't moved into any coding agent's folder automatically since none was specified (or the one given isn't one of: ${Object.keys(AGENT_SKILLS_PATH).join(', ')}).\n\nCopy the skill folder(s) you need into your tool's own skills/commands directory — see this package's README ("Other AI Tools" section) for the general steps.`,
+  );
 }
-
-console.log(
-  'MoonForge skill installed successfully. Please return to MoonForge to continue onboarding and implement events.',
-);
