@@ -6,6 +6,37 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.5.0] — 2026-08-28
+
+### Added
+
+- **`npx @moonforge/skill <agent>` install.** The package is now publishable
+  (`private` removed, `name` changed to the scoped `@moonforge/skill`) with a
+  `bin/install.js` entry point. One command works identically on macOS,
+  Linux, and Windows — no more OS-specific shell/PowerShell scripts — and
+  installs into the right global skills directory for whichever agent you
+  pass: `claude`, `codex`, `cursor`, `copilot`, or `windsurf`
+  (`~/.claude/skills`, `~/.codex/skills`, `~/.cursor/skills`,
+  `~/.copilot/skills`, `~/.codeium/windsurf/skills` respectively — Windsurf's
+  own directory lives under `.codeium`, not `.windsurf`).
+- `package.json` gained a `files` allowlist (`bin`, `skills`) so the
+  published tarball only ships what the installer needs, not `tests/`,
+  `scripts/build-sdk.mjs`, or `docs/`.
+- **Download-only fallback.** `npx @moonforge/skill` with no argument, or
+  with an agent that isn't one of the five above, downloads the skill files
+  into `./moonforge-skill/skills/` instead of erroring or guessing — there's
+  no directory convention to write into on the user's behalf for a tool we
+  don't recognize, so this hands them the files to place themselves (see
+  the README's "Other AI Tools" section).
+
+### Changed
+
+- README's Installation section now leads with the npx command; the
+  original `git clone` one-liner is kept as an explicit Claude-Code
+  alternative underneath it, not removed.
+- `moonforge/SKILL.md`'s update-check step now points at the npx command as
+  the recommended update path instead of assuming `git clone`.
+
 ## [1.4.0] — 2026-08-21
 
 ### Changed

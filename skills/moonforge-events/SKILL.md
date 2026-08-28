@@ -1,7 +1,7 @@
 ---
 name: moonforge-events
 description: Use when recommending analytics events for a game on any engine, organizing them by priority tier (P0-P3) based on game profile analysis
-version: 1.4.0
+version: 1.5.0
 ---
 
 # MoonForge Events
