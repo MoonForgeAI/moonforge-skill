@@ -2,3 +2,4 @@ node_modules/
 .superpowers/
 coverage/
 .DS_Store
+*.tgz

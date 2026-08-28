@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.5.1] — 2026-08-28
+
+### Fixed
+
+- **`npx @moonforge/skill` had no `bin` entry.** `package.json` declared
+  `"moonforge-skill": "./bin/install.js"` — the leading `./` is invalid in
+  npm's `bin` field and npm's publish-time validation silently strips the
+  whole entry rather than failing the publish (`npm warn publish
+  "bin[moonforge-skill]" script name bin/install.js was invalid and
+  removed`). `1.5.0` published with no working CLI as a result. Fixed to
+  `"bin/install.js"` (no `./`). `1.5.0` itself can't be republished (npm
+  never allows reusing a version number), so this fix ships as 1.5.1.
+
 ## [1.5.0] — 2026-08-28
 
 ### Added
