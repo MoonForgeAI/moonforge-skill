@@ -1,6 +1,6 @@
 # MoonForge Skill
 
-**Version 1.5.1**
+**Version 1.5.2**
 
 An interactive skill package that instruments any game with
 [MoonForge](https://moonforge.co) analytics and error tracking — whatever engine
@@ -78,7 +78,7 @@ Works for Claude Code, Codex CLI, Cursor, GitHub Copilot, and Windsurf — pass
 the agent you're using as the argument:
 
 ```bash
-npx @moonforge/skill claude    # or: codex, cursor, copilot, windsurf
+npx @moonforge/moonforge-skill claude    # or: codex, cursor, copilot, windsurf
 ```
 
 This installs the skill globally into the right directory for that agent —
@@ -94,7 +94,7 @@ convention for, so instead of guessing it downloads the skill files into
 the current directory:
 
 ```bash
-npx @moonforge/skill
+npx @moonforge/moonforge-skill
 ```
 
 This creates `./moonforge-skill/skills/` — copy the skill folder(s) you need
@@ -137,7 +137,7 @@ for `moonforge-implement`, an `assets/` folder with the bundled web SDK. If
 your tool has its own skills/commands/rules folder, the general steps are the
 same regardless of exact tool:
 
-1. Get the files — either `npx @moonforge/skill` (downloads to
+1. Get the files — either `npx @moonforge/moonforge-skill` (downloads to
    `./moonforge-skill/skills/`) or clone this repository:
    ```bash
    git clone https://github.com/MoonForgeAI/moonforge-skill.git

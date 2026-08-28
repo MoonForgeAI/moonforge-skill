@@ -5,7 +5,7 @@
  * (SKILL.md) open standard shared by Claude Code, Codex CLI, Cursor,
  * GitHub Copilot, and Windsurf.
  *
- * Usage: npx @moonforge/skill [agent]
+ * Usage: npx @moonforge/moonforge-skill [agent]
  *   agent: claude | codex | cursor | copilot | windsurf
  *
  * With a recognized agent, installs straight into that agent's global
@@ -47,7 +47,7 @@ const skillsSrc = join(dirname(fileURLToPath(import.meta.url)), '..', 'skills');
 
 if (!existsSync(skillsSrc)) {
   fail(
-    'Could not find the bundled skill files — the @moonforge/skill package may be corrupted. Try running the command again.',
+    'Could not find the bundled skill files — the @moonforge/moonforge-skill package may be corrupted. Try running the command again.',
   );
 }
 

@@ -6,6 +6,23 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.5.2] — 2026-08-28
+
+### Changed
+
+- **Package renamed `@moonforge/skill` → `@moonforge/moonforge-skill`.** With
+  1.5.1's `bin` entry actually working, `npx @moonforge/skill <agent>` still
+  didn't reliably resolve on Windows: the bin command (`moonforge-skill`)
+  didn't match the package's own unscoped name (`skill`), and npx's
+  same-name-as-package resolution path — the one that makes `npx cowsay` or
+  `npx @11ty/eleventy` just work everywhere — doesn't cover that mismatch
+  consistently across platforms. Renaming so the unscoped package name equals
+  the bin name removes the ambiguity entirely rather than requiring everyone
+  to type `npx --package=@moonforge/skill moonforge-skill <agent>`.
+  `@moonforge/skill` is not unpublished — 1.5.0 and 1.5.1 stay on the
+  registry as-is — but it will be deprecated pointing at the new name, and
+  all install instructions now use `@moonforge/moonforge-skill`.
+
 ## [1.5.1] — 2026-08-28
 
 ### Fixed

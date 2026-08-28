@@ -1,7 +1,7 @@
 ---
 name: moonforge
 description: Use when instrumenting a game of any engine with MoonForge analytics and error events — analyzes the game, recommends events, generates the SDK into the project, writes the tracking calls, and verifies the setup
-version: 1.5.1
+version: 1.5.2
 ---
 
 # MoonForge Analytics Instrumentation
@@ -69,7 +69,7 @@ and compare it to this file's own `version:` above.
 - **Newer version available:** tell the user once, briefly — e.g. "MoonForge
   skill v&lt;remote&gt; is available (you have v&lt;installed&gt;)." — and ask whether they want to
   update now. If yes, follow this repo's `README.md` install instructions for
-  whichever tool you are running as (`npx @moonforge/skill <agent>` is the
+  whichever tool you are running as (`npx @moonforge/moonforge-skill <agent>` is the
   recommended path for Claude Code, Codex, Cursor, Copilot, and Windsurf; see
   the README's "Other AI Tools" section for anything else), then continue the
   flow on the version that was just running — do not re-invoke yourself

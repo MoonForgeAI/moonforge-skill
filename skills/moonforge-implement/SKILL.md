@@ -1,7 +1,7 @@
 ---
 name: moonforge-implement
 description: Use when putting the MoonForge SDK into a game and writing tracking calls against it — copies the bundled SDK on web, generates one on Unity and every other engine, then instruments the selected events
-version: 1.5.1
+version: 1.5.2
 ---
 
 # MoonForge Implement

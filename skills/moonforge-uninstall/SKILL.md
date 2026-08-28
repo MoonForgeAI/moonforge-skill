@@ -1,7 +1,7 @@
 ---
 name: moonforge-uninstall
 description: Use when removing MoonForge analytics and error tracking from a game on any engine — inventories every SDK file and tracking call, removes them with reviewable diffs, optionally deregisters the game server-side, and verifies the game still builds
-version: 1.5.1
+version: 1.5.2
 ---
 
 # MoonForge Uninstall
