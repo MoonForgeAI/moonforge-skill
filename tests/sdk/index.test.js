@@ -13,6 +13,9 @@ describe('index wiring', () => {
     vi.stubGlobal('fetch', f);
     const sdk = await fresh();
     sdk.MoonForgeAnalytics.init({ gameId: 'g-1' });
+    // session_start is held in the pre-identify buffer until identified -
+    // release it, the same as a game would once its login round trip resolves.
+    sdk.MoonForgeAnalytics.markIdentified();
     await Promise.resolve();
     const names = f.mock.calls.map((c) => JSON.parse(c[1].body).payload.name);
     expect(names).toContain('session_start');
@@ -65,6 +68,9 @@ describe('index wiring', () => {
     Object.defineProperty(globalThis.document, 'visibilityState', { configurable: true, get: () => vis });
     const sdk = await import('../../skills/moonforge-implement/assets/moonforge-sdk/index.js');
     sdk.MoonForgeAnalytics.init({ gameId: 'g-1' });
+    // Release the pre-identify buffer so session events send immediately,
+    // same as any other test exercising session lifecycle end-to-end.
+    sdk.MoonForgeAnalytics.markIdentified();
     await Promise.resolve();
     vis = 'hidden'; globalThis.dispatchEvent(new Event('visibilitychange')); await Promise.resolve();
     vis = 'visible'; globalThis.dispatchEvent(new Event('visibilitychange')); await Promise.resolve();

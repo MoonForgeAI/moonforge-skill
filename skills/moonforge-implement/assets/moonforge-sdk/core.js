@@ -2,6 +2,7 @@
 const DISTINCT_ID_KEY = 'mf_distinct_id';
 const SESSION_ID_KEY = 'mf_session_id';
 const SESSION_TS_KEY = 'mf_session_ts';
+const ALIASED_KEY = 'mf_aliased';
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_ENDPOINT = 'https://collector.moonforge.co';
 
@@ -52,6 +53,16 @@ export function getDistinctId() {
   return id;
 }
 export function setDistinctId(id) { if (id) lset(DISTINCT_ID_KEY, id); }
+
+/**
+ * True once this device has ever sent an `alias` linking an anonymous id to
+ * a real one. Persistent (not the in-memory `identified` buffering flag,
+ * which resets every page load) - a returning, already-identified player's
+ * app reloading and calling `identify` again must NOT re-alias; only the
+ * device's first-ever anonymous-to-real transition should.
+ */
+export function hasAliased() { return lget(ALIASED_KEY) === '1'; }
+export function markAliased() { lset(ALIASED_KEY, '1'); }
 export function getSessionId() {
   const now = Date.now();
   const last = parseInt(lget(SESSION_TS_KEY) ?? '0', 10);
@@ -66,7 +77,10 @@ export function getUserProps() { return { ...state.userProps }; }
 export function setUserProp(k, v) { state.userProps = { ...state.userProps, [k]: v }; }
 export function removeUserProp(k) { const n = { ...state.userProps }; delete n[k]; state.userProps = n; }
 export function clearUserProps() { state.userProps = {}; }
-export function resetAll() { state.userProps = {}; state.cacheToken = null; setDistinctId(uuid()); resetSession(); }
+// Clears the aliased flag along with identity: a fresh anonymous id after
+// logout (e.g. a different person on a shared device) must be eligible for
+// its own alias the next time someone identifies on this device.
+export function resetAll() { state.userProps = {}; state.cacheToken = null; setDistinctId(uuid()); resetSession(); lset(ALIASED_KEY, ''); }
 
 export function collectAutoFields() {
   const loc = globalThis.location ?? {}; const doc = globalThis.document ?? {};
@@ -138,8 +152,11 @@ export async function postEvent(payload, { beacon = false } = {}) {
   if (!state.config) return false;
 
   // Beacon events fire at page teardown - buffering one loses it outright.
-  // Identify itself must never be buffered; it is what releases the buffer.
-  const bufferable = !identified && !beacon && payload && payload.type !== 'identify';
+  // Identify and alias must never be buffered; identify is what releases the
+  // buffer, and alias is a historical link between two ids that must reach
+  // the collector in real time, not get rewritten alongside it.
+  const bufferable = !identified && !beacon && payload
+    && payload.type !== 'identify' && payload.type !== 'alias';
 
   if (bufferable) {
     if (pendingEvents.length < MAX_BUFFERED_EVENTS) {

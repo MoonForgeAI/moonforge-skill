@@ -13,8 +13,14 @@ idempotent `init`, session lifecycle (`Application.quitting` **and**
 `OnApplicationPause` on mobile), persistent distinct id in `PlayerPrefs`,
 pre-identify buffering, unix-second timestamps, swallowed transport errors, and
 `appVersion` set to `Application.version` (read fresh at send time, not the
-skill's own version) on every event and identify call. An SDK implementing
-only `TrackEvent` looks finished while losing sessions, identity and version.
+skill's own version) on every event and identify call. Also confirm the first
+`Identify` call this install ever makes sends an `alias` first (linking the
+`PlayerPrefs`-stored anonymous id to the real one), gated by a persistent flag
+so a later `Identify` on the same install never repeats it — most players play
+anonymously well past the pre-identify buffer's window before ever creating an
+account, so without this every such signup becomes two unrelated player
+records. An SDK implementing only `TrackEvent` looks finished while losing
+sessions, identity, version, and the ability to ever reconcile them.
 
 Confirm `MoonForgeSettings` exists in a `Resources/` folder **and carries the
 game id**. An SDK with no game id is inert, and this is the step most often

@@ -51,5 +51,14 @@ Place calls at the right site per framework (e.g. Phaser `Scene.create()` for
 `trackEvent('level_complete', {...})`). Show a diff for each change and get approval,
 exactly like the Unity flow.
 
+**`identify(userId, traits)` sends an `alias` automatically** the first time
+it's ever called on a device, linking the anonymous id that was tracking the
+player pre-signup to the real one — this is what lets pre-signup activity
+survive account creation instead of being permanently stranded under an id
+nobody will query again. It fires once per device; a later `identify` (a
+normal login) does not repeat it. No action needed beyond calling `identify`
+— just don't assume a fresh anonymous id after `reset()` (e.g. logout) is
+unaliasable; it correctly becomes eligible again.
+
 ## 4. Write `.moonforge.json` if missing
 `{ "gameId": "<GAME_ID>", "gameName": "<name>", "sdkConfigured": true }`.

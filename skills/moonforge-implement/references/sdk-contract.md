@@ -32,6 +32,7 @@ generate path.
 | `set_user_property(k, v)` | Persistent property merged into every later event's `data`. |
 | **Session lifecycle** | `session_start` on init. `session_end` on the engine's quit hook with `{ session_id, duration_seconds }`. A fresh session after an inactivity timeout (default 1800s) carrying `previous_session_id`. |
 | **Pre-identify buffering** | Events emitted before `identify` are held (cap 50) and rewritten to the real id when it lands. Flush anonymously after ~10s if identify never comes — losing them is worse than an anonymous id. Without this, everything before login is stranded: it is what made two thirds of one real game's players look like single-day visitors. |
+| **Alias on first identify** | Buffering only protects the ~10s/50-event window. Most players play anonymously for far longer than that before ever creating an account — the *common* case, not the edge case — so by the time `identify` is ever called, their landing `session_start` is almost always already flushed under the anonymous id. On the **first** `identify(userId, ...)` call this device has ever made (track this persistently — not the in-memory buffering flag, which resets every page load), send an `alias` event linking the anonymous id to the real one **before** anything else, so the collector can reconcile the two into one player. Never fire it again for this device unless identity is reset (e.g. logout on a shared device). Never buffer it — same as `identify`. Without this, every player who signs up more than ~10 seconds into their first session becomes two permanently separate player records: an anonymous one holding all their pre-signup activity, and a real one with none of it. |
 | **Persistent distinct id** | Created once, stored on disk, reused across launches. Never derived from a device fingerprint or IP. |
 | **Transport** | Off the main thread, 2–5s timeout, correct User-Agent, every error swallowed. |
 | `flush()` | Best-effort drain, for use before quit. |
@@ -70,6 +71,21 @@ generate path.
 }
 ```
 
+### Alias
+Sent once per device, immediately before the *first* `identify` call ever
+succeeds on it — never repeated afterward unless identity is explicitly reset.
+```json
+{
+  "type": "alias",
+  "payload": {
+    "game": "<GAME_UUID>",
+    "id": "<the real id just passed to identify>",
+    "previous_id": "<the anonymous distinct id this device had until now>",
+    "timestamp": 1755381234
+  }
+}
+```
+
 | Field | Rule |
 |---|---|
 | `game` | Must be a valid **UUID** — schema-validated, silently rejected otherwise. |
@@ -79,6 +95,7 @@ generate path.
 | `timestamp` | Unix **SECONDS**. Milliseconds put events ~55,000 years in the future, where no query will return them. |
 | `appVersion` | The game's own version, read fresh at send time — not cached from a value that could go stale, not the skill's version. |
 | `screen`, `language` | Send whenever the platform can provide them (see the capability table above) — not optional in the "don't bother" sense, only in the "may not exist on this platform" sense. |
+| `previous_id` (alias only) | The anonymous id being replaced. Required on `alias`, absent everywhere else. |
 
 Optional, safe to omit: `url`, `title`, `referrer`, `hostname`.
 
@@ -116,6 +133,9 @@ framework offers:
 
 - `track_event` produces the exact envelope above, with unix-second timestamps.
 - Events before `identify` are buffered and rewritten to the real id after.
+- The first-ever `identify` on a fresh device sends an `alias` (previous
+  anonymous id → real id) before the `identify` itself; a second `identify`
+  call does not send another one.
 - A transport failure cannot propagate into game code.
 
 If the project has no test framework and the user does not want one added, say

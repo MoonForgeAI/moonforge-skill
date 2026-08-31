@@ -126,6 +126,9 @@ export const MoonForgeAnalytics = {
   // call identify, and so tests can reset buffering between cases.
   markIdentified: core.markIdentified,
   resetBuffering: core.resetBuffering,
+  // Exposed for diagnostics/tests: whether this device has ever sent an
+  // alias linking an anonymous id to a real one.
+  hasAliased: core.hasAliased,
 };
 
 export const MoonForgeErrorTracker = {

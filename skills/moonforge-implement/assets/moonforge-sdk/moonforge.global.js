@@ -4,6 +4,7 @@
   var DISTINCT_ID_KEY = "mf_distinct_id";
   var SESSION_ID_KEY = "mf_session_id";
   var SESSION_TS_KEY = "mf_session_ts";
+  var ALIASED_KEY = "mf_aliased";
   var SESSION_TIMEOUT_MS = 30 * 60 * 1e3;
   var DEFAULT_ENDPOINT = "https://collector.moonforge.co";
   var ErrorLevel = Object.freeze({ Info: "info", Warning: "warning", Error: "error", Fatal: "fatal" });
@@ -81,6 +82,12 @@
   function setDistinctId(id) {
     if (id) lset(DISTINCT_ID_KEY, id);
   }
+  function hasAliased() {
+    return lget(ALIASED_KEY) === "1";
+  }
+  function markAliased() {
+    lset(ALIASED_KEY, "1");
+  }
   function getSessionId() {
     var _a;
     const now = Date.now();
@@ -118,6 +125,7 @@
     state.cacheToken = null;
     setDistinctId(uuid());
     resetSession();
+    lset(ALIASED_KEY, "");
   }
   function collectAutoFields() {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
@@ -173,7 +181,7 @@
   }
   async function postEvent(payload, { beacon = false } = {}) {
     if (!state.config) return false;
-    const bufferable = !identified && !beacon && payload && payload.type !== "identify";
+    const bufferable = !identified && !beacon && payload && payload.type !== "identify" && payload.type !== "alias";
     if (bufferable) {
       if (pendingEvents.length < MAX_BUFFERED_EVENTS) {
         pendingEvents.push({ payload, opts: { beacon } });
@@ -263,6 +271,11 @@
   }
   function identify(userId, traits = {}) {
     if (!ensure()) return void 0;
+    const previousId = getDistinctId();
+    if (userId && userId !== previousId && !hasAliased()) {
+      postEvent({ type: "alias", payload: { game: getConfig().gameId, id: userId, previous_id: previousId, timestamp: unixSeconds() } });
+      markAliased();
+    }
     if (userId) setDistinctId(userId);
     markIdentified();
     return postEvent({ type: "identify", payload: { game: getConfig().gameId, id: userId != null ? userId : getDistinctId(), data: traits, timestamp: unixSeconds(), appVersion: getConfig().appVersion } });
@@ -534,7 +547,10 @@
     // Exposed so a host app can release buffered events on a path that does not
     // call identify, and so tests can reset buffering between cases.
     markIdentified,
-    resetBuffering
+    resetBuffering,
+    // Exposed for diagnostics/tests: whether this device has ever sent an
+    // alias linking an anonymous id to a real one.
+    hasAliased
   };
   var MoonForgeErrorTracker = {
     setUser,

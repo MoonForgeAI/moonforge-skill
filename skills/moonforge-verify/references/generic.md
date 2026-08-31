@@ -16,6 +16,14 @@ finished and silently loses sessions, identity, and version.
   notification; if it is absent, `session_end` is never sent.
 - **Pre-identify buffering**: events before `identify` are held and rewritten to
   the real id. Absent, everything before login is stranded anonymously.
+- **Alias on first identify**: the first `identify` call this device ever makes
+  sends an `alias` (`previous_id` = the anonymous id, `id` = the real one)
+  before the `identify` itself, gated by a *persistent* flag (not the in-memory
+  buffering flag). Grep for `alias` in the SDK module; if it's missing, every
+  player who signs up more than ~10s into their first session (the common
+  case, not the edge case) becomes two unrelated player records forever —
+  buffering alone does not cover this. Confirm a second `identify` call does
+  not send a second `alias`.
 - **Persistent distinct id**: written to disk and reloaded, not regenerated per
   launch.
 - **`appVersion`**: set on every event and identify payload from the

@@ -42,11 +42,56 @@ describe('core', () => {
   });
 
   it('postEvent uses fetch(keepalive), captures + replays the cache token', async () => {
+    core.markIdentified(); // this test is about delivery, not the pre-identify buffer
     const fetchMock = mockFetchOk('tok_abc');
     await core.postEvent({ type: 'event', payload: { game: 'g-1', name: 'x' } });
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ keepalive: true, method: 'POST' });
     await core.postEvent({ type: 'event', payload: { game: 'g-1', name: 'y' } });
     expect(fetchMock.mock.calls[1][1].headers['x-moonforge-cache']).toBe('tok_abc');
+  });
+
+  describe('pre-identify buffering', () => {
+    beforeEach(() => { core.resetBuffering(); });
+
+    it('holds events until identify, then rewrites them to the real id and flushes', async () => {
+      const fetchMock = mockFetchOk();
+      await core.postEvent({ type: 'event', payload: { game: 'g-1', name: 'level_start' } });
+      expect(fetchMock).not.toHaveBeenCalled(); // buffered, not sent yet
+
+      core.setDistinctId('real-user-1');
+      core.markIdentified();
+      await Promise.resolve();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.payload.name).toBe('level_start');
+      expect(body.payload.id).toBe('real-user-1'); // rewritten from whatever anon id it had
+    });
+
+    it('flushes anonymously after the grace period if identify never comes', async () => {
+      vi.useFakeTimers();
+      try {
+        const fetchMock = mockFetchOk();
+        const anonId = core.getDistinctId();
+        await core.postEvent({ type: 'event', payload: { game: 'g-1', name: 'level_start' } });
+        expect(fetchMock).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(10000); // IDENTIFY_GRACE_MS
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.payload.id).toBe(anonId); // never identified -> sent under the anonymous id
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('identify and alias are never buffered, even before identify has resolved', async () => {
+      const fetchMock = mockFetchOk();
+      await core.postEvent({ type: 'identify', payload: { game: 'g-1', id: 'real-user-1' } });
+      await core.postEvent({ type: 'alias', payload: { game: 'g-1', id: 'real-user-1', previous_id: 'anon-1' } });
+      expect(fetchMock).toHaveBeenCalledTimes(2); // both sent immediately, not queued
+    });
   });
 
   it('falls back to fetch when sendBeacon returns false', async () => {
