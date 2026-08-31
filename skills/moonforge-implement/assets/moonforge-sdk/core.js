@@ -175,9 +175,11 @@ export async function postEvent(payload, { beacon = false } = {}) {
 
   // Beacon events fire at page teardown - buffering one loses it outright.
   // Identify itself must never be buffered; it is what releases the buffer.
-  const eventName = payload?.payload?.name;
-  const bufferable = !identified && !beacon && payload && payload.type !== 'identify'
-    && eventName !== 'session_start' && eventName !== 'session_end';
+  // session_start/session_end are NOT exempt: session_start is the original
+  // motivating case for this buffer (it fires on init, before an async login
+  // round trip can resolve identify) - excluding it would reopen the exact
+  // bug this buffering exists to close.
+  const bufferable = !identified && !beacon && payload && payload.type !== 'identify';
 
   if (bufferable) {
     if (pendingEvents.length < MAX_BUFFERED_EVENTS) {

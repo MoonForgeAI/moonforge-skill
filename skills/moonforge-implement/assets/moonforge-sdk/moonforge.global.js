@@ -309,10 +309,8 @@
     }
   }
   async function postEvent(payload, { beacon = false } = {}) {
-    var _a;
     if (!state.config) return false;
-    const eventName = (_a = payload == null ? void 0 : payload.payload) == null ? void 0 : _a.name;
-    const bufferable = !identified && !beacon && payload && payload.type !== "identify" && eventName !== "session_start" && eventName !== "session_end";
+    const bufferable = !identified && !beacon && payload && payload.type !== "identify";
     if (bufferable) {
       if (pendingEvents.length < MAX_BUFFERED_EVENTS) {
         pendingEvents.push({ payload, opts: { beacon } });
