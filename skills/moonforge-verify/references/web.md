@@ -3,6 +3,13 @@
 ## 1. Static checks
 - SDK files present in the project (module folder or `moonforge.global.js`).
 - `init({ gameId })` is wired at the game bootstrap.
+- The first `identify()` call this device ever makes sends an `alias`
+  (`previous_id` = the anonymous id, `id` = the real one) before `identify`
+  itself, gated by a *persistent* flag (`hasAliased()`, not the in-memory
+  buffering flag) — grep `analytics.js` for `alias` if it was modified.
+  Without this, every player who signs up more than ~10s into their first
+  session (the common case) becomes two unrelated player records forever.
+  Confirm a second `identify()` call does not send a second `alias`.
 - Syntax: `node --check` each SDK file and each modified game file. If the project
   uses TypeScript, run `npx tsc --noEmit`; if ESLint is configured, run `npx eslint`
   on the touched files.

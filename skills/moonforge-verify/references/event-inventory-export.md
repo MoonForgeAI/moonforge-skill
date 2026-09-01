@@ -50,6 +50,7 @@ _Last verified: <ISO date>_
 | `session_end` | `session_id`, `duration_seconds` |
 | `first_open` | — |
 | `app_update` | `previous_version` |
+| `alias` | `id`, `previous_id` |
 
 ## P1 — Must implement
 
@@ -72,6 +73,13 @@ _Last verified: <ISO date>_
 - P0 rows have no `Trigger` column value (they're SDK-internal, not a call
   site in game code) — use a two-column table for P0, three columns
   (`Event`/`Trigger`/`Properties`) for P1–P3.
+- **Build the P0 table by copying `moonforge-events/references/telemetry-model.md`'s
+  row set directly, not by reconstructing it from what's visible in game
+  code.** `alias` in particular has no call site to grep for at all — it
+  fires inside `identify()`'s own implementation, not as its own tracking
+  call — so an inventory built by pattern-matching what got called drops it
+  every time. This is exactly the mistake that produced a `MOONFORGE_EVENTS.md`
+  missing `alias` in the field; source the P0 rows from the model doc, always.
 - `Trigger` is `file:line` when discoverable from the grep already done for
   the chat presentation; if a platform's inventory step doesn't resolve line
   numbers (e.g. a minified bundle), use the file path alone rather than

@@ -17,6 +17,12 @@ Once that generated SDK's `init()` runs, it auto-tracks:
 - `app_update` — once, on a returning device's `session_start`, when the
   configured app version differs from the last one this device saw —
   `{ previous_version }`. Never on the same first-ever launch as `first_open`.
+- `alias` — fires automatically **inside `identify()`'s own implementation**,
+  on the device's first-ever `identify()` call, linking the pre-signup
+  anonymous id to the real one. Not its own `track_event` call — it has no
+  game-code call site, which makes it easy to drop from a P0 summary built
+  from what's visible in game code rather than copied from
+  `moonforge-events/references/telemetry-model.md`.
 - `screen_view` — via `track_screen_view(name)`, wired to the engine's scene or
   screen change where one exists.
 - Geolocation and UTM/click-ID parsing are **server-side**, not something the

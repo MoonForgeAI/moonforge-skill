@@ -59,6 +59,7 @@ The MoonForge SDK tracks these when initialized (`MoonForgeAnalytics.Initialize(
 - `session_start` (re-engagement) — after inactivity timeout (default 1800s), same name with `{ session_id, previous_session_id }`
 - `first_open` — once per device, the moment its distinct id is first created (the install signal — matches Firebase's `first_open`/GA4's `first_visit`; also re-fires on a reinstall/storage-clear for a returning player, by design, since it tracks the device/install instance, not the human)
 - `app_update` — once, on a returning device's `session_start`, when `appVersion` differs from the last one seen for that device — `{ previous_version }`
+- `alias` — fires automatically **inside `Identify()`'s own implementation**, on the device's first-ever `Identify` call, linking the pre-signup anonymous id to the real one. Not its own `TrackEvent` call — no game-code call site, so it's easy to drop from any P0 summary that isn't copied straight from `references/telemetry-model.md`.
 
 **Screen views (via TrackScreenView):**
 - Initial scene/screen on init
@@ -254,6 +255,7 @@ server-side enrichment — no client-side geo/attribution capture needed.
 
 ### P0: Core (SDK auto - session, install, update, screen views, server enrichment)
 - session_start, session_end, first_open, app_update (locked names)
+- alias (fires automatically inside Identify(), not its own tracking call - no code needed, but easy to miss since it has no call site)
 - Screen views, device context (auto)
 - Geolocation + UTM/click IDs (server-side, automatic - nothing to wire)
 - [Identify / test_group if accounts or experiments exist]

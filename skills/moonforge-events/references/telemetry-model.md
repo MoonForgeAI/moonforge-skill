@@ -20,6 +20,9 @@ event names for session / FTUE-account / economy / revenue do not.
 | `session_end` | `session_id`, `duration_seconds` | On quit / page hide |
 | `first_open` | — | Once per device, the moment its distinct id is first created — the install signal. Re-fires on reinstall/storage-clear for a returning player, by design (device/install-instance signal, not a human signal — matches Firebase/GA4). |
 | `app_update` | `previous_version` | Once, on a returning device's `session_start`, when `appVersion` differs from the last one seen for that device. Never fires on a device's first-ever launch (`first_open`'s territory). |
+| `alias` (wire **type**, not an event name) | `id`, `previous_id` | P0, auto — but easy to drop from any summary built by scanning for `track_event`/`TrackEvent` calls, since it has **no game-code call site**: it fires automatically inside `identify()`'s own implementation, on the device's first-ever `identify()` call only, never as its own tracking call. Full mechanism: `sdk-contract.md`'s "Alias on first identify" capability. |
+
+**This table is the copy-from source for every other P0 list in this skill** (`moonforge/SKILL.md`, `moonforge-events/SKILL.md`, `*-auto-tracked.md`, `event-inventory-export.md`'s example). If you're writing or checking one of those, copy this table's row set — do not reconstruct the P0 list from memory or from what has a visible call site, which is exactly how `alias` gets dropped.
 
 **Forbidden aliases:** `session_begin`, `app_open`, `sessionStart`, `session_started`, `download`, `app_installed`, etc.
 

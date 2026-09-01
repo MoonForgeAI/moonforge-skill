@@ -9,7 +9,12 @@ Canonical names and property keys: `moonforge-events/references/telemetry-model.
    `first_open`, and `app_update` automatically from `init()` — no extra
    wiring. Unity/generic generated SDK must implement the equivalent
    (`prepareSessionStart()`/`isFirstOpen()`/`checkAppUpdate()` per
-   `sdk-contract.md`) rather than only `session_start`.
+   `sdk-contract.md`) rather than only `session_start`. Same for `alias`: it
+   has no hook recipe of its own (it fires automatically inside
+   `identify()`'s implementation, not as a separate call) — it's part of
+   `identify()` being implemented correctly, not an item on this list to
+   instrument separately. Confirm it's present via `sdk-contract.md`'s "Alias
+   on first identify" capability, not by looking for a call site.
 2. **Revenue hooks** when profile Monetization is IAP / ads / both.
 3. **FTUE/account hooks** — `tutorial_start`/`tutorial_complete` always when
    the game has any onboarding; `account_created` when profile shows Accounts.

@@ -297,6 +297,9 @@ The SDK automatically tracks when initialized:
 - `session_start` — on init with `{ session_id }`
 - `session_end` — on shutdown with `{ session_id, duration_seconds }`
 - Session re-engagement after `sessionTimeoutSeconds` of inactivity
+- `first_open` — once per device, the moment its distinct id is first created (the install signal)
+- `app_update` — once, on a returning device's `session_start`, when the app version differs from the last one seen
+- `alias` — fires automatically **inside `Identify()`'s own implementation** on the device's first-ever `Identify` call, linking the pre-signup anonymous id to the real one. Not its own `TrackEvent` call, so it has no call site to grep for — easy to drop if this list is reconstructed from memory instead of copied from `moonforge-events/references/telemetry-model.md`.
 - Scene changes via `TrackScreenView` on `SceneManager.sceneLoaded`
 - Unhandled exceptions, Unity log errors, native crashes (separate error pipeline)
 
