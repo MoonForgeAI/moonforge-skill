@@ -47,10 +47,14 @@ the git tag are kept in lockstep.
   overwrite) on every run — not just presented once in chat. `moonforge-uninstall`
   deletes it alongside `.moonforge.json`.
 - Tier remap in `moonforge-events`: P0 = core/auto (session, install, update),
-  P1 = revenue + FTUE/accounts + atomic game actions, P2 = economy + UI gaps,
-  P3 = optional engagement — replacing the old genre-recipe-first P1. New
-  `moonforge-analyze` profile signals feed this: Monetization, Economy
-  Resources, Accounts, UI Surfaces.
+  P1 = revenue + economy + FTUE/accounts + atomic game actions, P2 = UI gaps,
+  P3 = optional engagement — replacing the old genre-recipe-first P1. Economy
+  sits in P1 (not P2) deliberately: a broken or un-instrumented economy is as
+  much a game-health blind spot as missing revenue data for any game whose
+  core loop involves currencies/items. New `moonforge-analyze` profile
+  signals feed this: Monetization, Economy Resources, Accounts, UI Surfaces —
+  including `box`/`gacha`/`pack`/`unbox`/`loot` in the economy-detection
+  keyword list, alongside the existing `coin`/`gold`/`gem`/`currency`/`inventory`.
 
 ### Fixed
 
@@ -61,6 +65,22 @@ the git tag are kept in lockstep.
   code, which parses these straight out of `url`'s query string for every
   event. No other attribution capture is needed; this one field was the
   entire blocker.
+- **`alias` was missing from every P0 summary except `sdk-contract.md`.**
+  Reported after another agent using the skill followed
+  `moonforge-events/SKILL.md`'s P0 template, dropped `alias` from a generated
+  SDK as a result, and had to revert the affected edits once the gap
+  surfaced. Root cause: `alias` has no game-code call site to grep for (it
+  fires inside `identify()`'s own implementation, never as its own tracking
+  call), so any P0 list assembled from what's visible in code — rather than
+  copied from `telemetry-model.md` — silently drops it. Fixed in
+  `telemetry-model.md` first (now explicitly the copy-from source, with a
+  note not to reconstruct the list from memory), then in every place that
+  had gone stale: the top-level `moonforge/SKILL.md` (which was also missing
+  `first_open`/`app_update` entirely), `moonforge-events/SKILL.md` (both its
+  main P0 section and its presentation template), both `*-auto-tracked.md`
+  files, `event-inventory-export.md`'s example, and
+  `moonforge-verify/references/web.md` (which had no alias check at all —
+  Change 1 only added it to `unity.md`/`generic.md`).
 
 ### Notes
 
