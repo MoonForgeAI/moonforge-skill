@@ -104,8 +104,15 @@ on `pr-10` before that branch was abandoned:
 - The matching SDK helpers: `trackEconomyTransaction`, `trackIapInitiated`,
   `trackIapCompleted`, `trackAdStarted`, `trackAdCompleted`, `trackAdImpression`
   (and the `flatRow` implementation backing the economy helper).
-- Tier remap: P0 = core/auto, P1 = revenue + game actions, P2 = economy + UI
-  gaps, P3 = optional engagement — replacing the old genre-recipe-first P1.
+- Tier remap: P0 = core/auto, P1 = revenue + FTUE/accounts + economy + game
+  actions, P2 = UI gaps, P3 = optional engagement — replacing the old
+  genre-recipe-first P1. **One deliberate divergence from `pr-10`:** economy
+  was P2 there ("Game Economy + UI Gaps"); moved to P1 here. A broken or
+  un-instrumented economy is as much a game-health blind spot as missing
+  revenue data for any game whose core loop involves currencies/items — sink/
+  source imbalance drives churn and (indirectly) monetization the same way a
+  broken purchase flow does, so it doesn't belong a tier below "must
+  implement."
 - `moonforge-analyze` profile additions that feed the above: Monetization,
   Economy Resources, Accounts, UI Surfaces.
 - `previous_session_id` on re-engagement `session_start` (`prepareSessionStart()`'s

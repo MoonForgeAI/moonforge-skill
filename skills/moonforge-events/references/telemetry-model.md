@@ -94,7 +94,7 @@ universal.
 
 ---
 
-## Economy (P2 — one name for every transform, every game)
+## Economy (P1 — one name for every transform, every game)
 
 | Event name | Role |
 |------------|------|

@@ -12,7 +12,7 @@ Run after the event inventory. Registry:
 | P1 | Monetization: ads | `ad_started` / `ad_completed` and/or `ad_impression` |
 | P1 | Any onboarding exists | `tutorial_start` and `tutorial_complete` |
 | P1 | Accounts | `account_created` at the signup handler, called after `Identify` |
-| P2 | Economy resources present | at least one `economy_transaction` |
+| P1 | Economy resources present | at least one `economy_transaction` |
 | P2 | UI surfaces beyond scenes | extra `TrackScreenView` / screen_view for modals/menus |
 
 If a tier was selected but required events are missing → **FAIL** with specific gaps.

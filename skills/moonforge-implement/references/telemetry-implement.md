@@ -86,7 +86,7 @@ void OnSignupComplete(string userId, string method, string provider)
 
 ---
 
-## Unity — economy (P2)
+## Unity — economy (P1)
 
 Hook at the **authoritative** wallet/inventory method, not the UI button:
 

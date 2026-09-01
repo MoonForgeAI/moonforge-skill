@@ -38,8 +38,8 @@ verbatim**. Game actions and most UI/engagement names may vary by game.
 | Tier | Purpose | Instrumentation |
 |------|---------|--------------------|
 | P0 | Core — session, install, update, identity context | Auto-tracked by the SDK on **every** platform (Unity, web, and generated generic SDKs) |
-| P1 | Revenue + FTUE + atomic game actions | Must implement — essential for revenue and retention |
-| P2 | Game economy + UI gaps | Should implement when currencies/items or non-scene UI exist |
+| P1 | Revenue + economy + FTUE + atomic game actions | Must implement — essential for revenue, game health, and retention |
+| P2 | UI gaps | Should implement when non-scene UI exists |
 | P3 | Engagement / experiments | Optional — per-step tutorial detail, achievements, A/B, share |
 
 Recommendations start at **P1**. P0 needs no manual instrumentation once the SDK is initialized.
@@ -93,7 +93,7 @@ Tell the user P0 is fully covered — no instrumentation needed, including
 attribution. Do not recommend duplicate scene, device, or language props on
 custom events.
 
-## P1: Revenue + FTUE + Game Actions (Must Implement)
+## P1: Revenue + Economy + FTUE + Game Actions (Must Implement)
 
 ### Revenue (locked names — zero deviation)
 
@@ -112,6 +112,30 @@ applicable subset from the registry. Copy names and required keys exactly:
 - `store`: prefer `app_store` \| `google_play` \| `steam` \| `web` \| `other`
 
 Never invent aliases (`purchase`, `buy_item`, `rewarded_ad_watched`, etc.).
+
+### Economy (locked name — zero deviation)
+
+If the profile lists **Economy resources** (or the game clearly has currencies /
+craft / upgrade / rewards), recommend **only**:
+
+**Event name:** `economy_transaction` (never anything else)
+
+**Props** (omit unused slots; never rename keys):
+
+- `reason` (required) — game-specific why (`upgrade_weapon`, `claim_login_reward`, …)
+- `input_N_type`, `input_N_before`, `input_N_after` for N = 1..3
+- `output_N_type`, `output_N_before`, `output_N_after` for N = 1..3
+- Free reward → omit inputs; sink with no grant → omit outputs
+
+One event per economic state change. LHS → RHS transform. Do **not** use the
+reason as the TrackEvent name.
+
+Full schema: `references/telemetry-model.md`.
+
+Tiered alongside revenue, not below it: a broken or un-instrumented economy
+is as much a game-health blind spot as missing revenue data for any game
+whose core loop involves currencies/items — sink/source imbalance drives
+churn and (indirectly) monetization the same way a broken purchase flow does.
 
 ### FTUE & accounts (locked names — zero deviation)
 
@@ -147,29 +171,10 @@ economy, or FTUE/account events).
 **Casual/Puzzle:** `level_started` / `level_completed` / `level_failed`  
 **Action/Arcade:** `game_started` / `player_died` / `game_over`  
 **RPG/Adventure:** `quest_started` / `quest_completed` / `character_leveled_up`  
-**Strategy/Simulation:** `building_placed` / `stage_completed` (currency moves → P2 `economy_transaction`, not a bespoke spend event)  
+**Strategy/Simulation:** `building_placed` / `stage_completed` (currency moves → P1 `economy_transaction`, not a bespoke spend event)  
 **Hyper-casual:** `round_started` / `round_ended` / `high_score`
 
-## P2: Game Economy + UI Gaps (Should Implement)
-
-### Economy (locked name — zero deviation)
-
-If the profile lists **Economy resources** (or the game clearly has currencies /
-craft / upgrade / rewards), recommend **only**:
-
-**Event name:** `economy_transaction` (never anything else)
-
-**Props** (omit unused slots; never rename keys):
-
-- `reason` (required) — game-specific why (`upgrade_weapon`, `claim_login_reward`, …)
-- `input_N_type`, `input_N_before`, `input_N_after` for N = 1..3
-- `output_N_type`, `output_N_before`, `output_N_after` for N = 1..3
-- Free reward → omit inputs; sink with no grant → omit outputs
-
-One event per economic state change. LHS → RHS transform. Do **not** use the
-reason as the TrackEvent name.
-
-Full schema: `references/telemetry-model.md`.
+## P2: UI Gaps (Should Implement)
 
 ### UI (beyond auto screen views)
 
@@ -260,13 +265,13 @@ server-side enrichment — no client-side geo/attribution capture needed.
 - Geolocation + UTM/click IDs (server-side, automatic - nothing to wire)
 - [Identify / test_group if accounts or experiments exist]
 
-### P1: Revenue + FTUE + Game Actions (recommended)
+### P1: Revenue + Economy + FTUE + Game Actions (recommended)
 [Revenue table — locked iap_* / ad_* names only, if monetization present]
+[economy_transaction rows with reason + input/output props — if resources exist]
 [tutorial_start / tutorial_complete, account_created — if accounts/FTUE present]
 [Action table — discovered for this game; genre seeds only if they match]
 
-### P2: Economy + UI (suggested)
-[economy_transaction rows with reason + input/output props — if resources exist]
+### P2: UI (suggested)
 [Extra UI screens/modals if not auto-covered]
 
 ### P3: Engagement (optional)
@@ -285,7 +290,7 @@ server-side enrichment — no client-side geo/attribution capture needed.
   query string out of `url`
 - Renaming session, economy, revenue, or FTUE/account events or their required prop keys
 - Encoding economy `reason` as the TrackEvent name instead of `economy_transaction`
-- Putting IAP/ads/FTUE/account events in P3 — they're P0/P1
+- Putting IAP/ads/economy/FTUE/account events in P2 or P3 — they're P0/P1
 - Skipping `economy_transaction` when the game has currencies/items
 - Inferring `account_created` from `Identify` alone — a returning player's first `Identify` on a *new device* is a login, not a signup
 - Recommending events for systems the game doesn't have

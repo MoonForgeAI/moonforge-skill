@@ -57,6 +57,7 @@ _Last verified: <ISO date>_
 | Event | Trigger | Properties |
 |-------|---------|------------|
 | `iap_completed` | `Shop.cs:82` | `product_id`, `price`, `currency`, `transaction_id` |
+| `economy_transaction` | `Wallet.cs:114` | `reason`, `input_1_type`, `input_1_before`, `input_1_after` |
 | `tutorial_complete` | `Onboarding.cs:41` | `outcome` |
 
 ## P2 — Should implement
