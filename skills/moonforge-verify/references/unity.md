@@ -165,6 +165,13 @@ If rate-limited, events return HTTP 429. The SDK queues and retries automaticall
 [ping result or skipped reason]
 ```
 
+### 6. Write `MOONFORGE_EVENTS.md`
+
+Save the Event Inventory table (§3) as a file in the project root — per
+`moonforge-verify/references/event-inventory-export.md` — so it survives
+after this conversation ends. Cover every event currently in `Assets/`, not
+just what this run touched; overwrite the file completely each time.
+
 ## Common Mistakes
 
 - Not checking the right Unity log path for the OS

@@ -44,3 +44,9 @@ a previously-seen one (e.g. bump `appVersion` in `init()` and reload), confirm
 
 ## 4. Present the event inventory
 List the events instrumented, their trigger sites, and any P0 auto-tracked events.
+
+## 5. Write `MOONFORGE_EVENTS.md`
+Save the same inventory as a file in the project root — per
+`moonforge-verify/references/event-inventory-export.md` — so it survives
+after this conversation ends. Cover every event currently in the project,
+not just what this run touched; overwrite the file completely each time.

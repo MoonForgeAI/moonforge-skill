@@ -17,7 +17,7 @@ grep -rn "MoonForgeAnalytics.init\|from ['\"].*moonforge\|import.*MoonForge" --i
 grep -rn "MoonForgeAnalytics\.\|MoonForgeErrorTracker\." --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" --include="*.html" . | grep -vE 'node_modules|/dist/|/build/|/\.next/'
 
 # Config
-ls .moonforge.json 2>/dev/null
+ls .moonforge.json MOONFORGE_EVENTS.md 2>/dev/null
 ```
 
 Present the inventory grouped as: **SDK files** / **bootstrap wiring** /
@@ -40,7 +40,8 @@ results that are assigned or passed onward).
   `captureNetworkError`, `setUser`, `setGameState`, ...): delete the statement
   line(s). If a surrounding block becomes empty (e.g. a now-empty `try/catch`
   or handler), clean it up and show that in the diff.
-- Delete `.moonforge.json`.
+- Delete `.moonforge.json` and `MOONFORGE_EVENTS.md` (if present) — a doc
+  describing events that no longer exist is actively misleading, not just clutter.
 - Leave every flagged value-using reference in place; list them at the end.
 
 ## 3. Verify
@@ -63,5 +64,5 @@ If the build fails on a removal-related error, show the error, fix the removal
 - Deleting a `const x = MoonForge...` line whose variable is used later (breaks
   the build) — that is exactly what the value-using flag is for.
 - Missing the inline `init` `<script>` block in the entry HTML of legacy games.
-- Forgetting `.moonforge.json` or the `moonforge/` folder itself.
+- Forgetting `.moonforge.json`, `MOONFORGE_EVENTS.md`, or the `moonforge/` folder itself.
 - Grepping inside `node_modules/` or `dist/` and "finding" bundled copies.

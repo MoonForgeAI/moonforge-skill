@@ -146,7 +146,9 @@ For each event in selected tiers, find the right file and method, write the Trac
 
 **REQUIRED SUB-SKILL:** Use moonforge-verify, passing `platform`
 
-Run compilation check, static analysis, and present event inventory.
+Run compilation check, static analysis, and present event inventory. Writes
+`MOONFORGE_EVENTS.md` to the project root so the inventory survives after
+this conversation ends.
 
 ## Quick Reference
 
@@ -312,3 +314,11 @@ The SDK automatically tracks when initialized:
   "sdkConfigured": true
 }
 ```
+
+## MOONFORGE_EVENTS.md
+
+Written by `moonforge-verify` at the end of Step 7 — the event inventory,
+saved to the project root, grouped by tier. Regenerated (full overwrite) on
+every verify run; format and rules in
+`moonforge-verify/references/event-inventory-export.md`. Deleted by
+`moonforge-uninstall` alongside `.moonforge.json`.

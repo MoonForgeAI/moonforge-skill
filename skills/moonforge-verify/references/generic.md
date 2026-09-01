@@ -129,3 +129,10 @@ it is the easiest place to fool yourself.
 List each event, its trigger site, and its properties. Flag any event that is
 emitted from more than one place — duplicate emission is the most common defect
 in generated instrumentation.
+
+## 8. Write `MOONFORGE_EVENTS.md`
+
+Save the same inventory as a file in the project root — per
+`moonforge-verify/references/event-inventory-export.md` — so it survives
+after this conversation ends. Cover every event currently in the project,
+not just what this run touched; overwrite the file completely each time.

@@ -8,7 +8,7 @@ version: 1.5.2
 
 ## Overview
 
-Verify that instrumented analytics events compile without errors and (optionally) reach the MoonForge collector endpoint.
+Verify that instrumented analytics events compile without errors and (optionally) reach the MoonForge collector endpoint. Writes `MOONFORGE_EVENTS.md` to the project root at the end — see `references/event-inventory-export.md` — so the event inventory survives after this conversation ends.
 
 ## When to Use
 

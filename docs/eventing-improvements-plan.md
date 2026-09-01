@@ -7,7 +7,7 @@ Tracks three changes originating from a review of `pr-10` (the abandoned
 |---|--------|--------|
 | 1 | Identity reconciliation (alias) | **Done** — committed, pushed |
 | 2 | Core locked event catalog | **Done** — implemented, tested, documented |
-| 3 | Event inventory export | Decided — not yet implemented |
+| 3 | Event inventory export | **Done** — implemented, documented |
 
 ---
 
@@ -337,7 +337,26 @@ session, nothing fires.
 
 ---
 
-## Change 3: Event Inventory Export
+## Change 3: Event Inventory Export — Done
+
+### What shipped
+
+- New shared reference doc,
+  `moonforge-verify/references/event-inventory-export.md`: the
+  `MOONFORGE_EVENTS.md` format (tier-grouped tables, P0 two-column/P1-P3
+  three-column with `Trigger`), the "auto-generated — do not edit by hand"
+  header, and the regeneration/scope rules (full overwrite, every event
+  currently in the project).
+- Wired into all three `moonforge-verify` platform references
+  (`web.md`/`unity.md`/`generic.md`) as a step immediately after the existing
+  chat-only "Present the event inventory" / "Present Results" step — same
+  data, now also saved to a file.
+- `moonforge-uninstall` deletes `MOONFORGE_EVENTS.md` alongside
+  `.moonforge.json` — added to the inventory check, the deletion step, and
+  the "expect ZERO MoonForge references" verification step, across its
+  top-level `SKILL.md` and all three platform references.
+- Top-level `moonforge/SKILL.md` updated: Step 7 now mentions the file gets
+  written, and a new `## MOONFORGE_EVENTS.md` section points to the format doc.
 
 ### Requirement
 

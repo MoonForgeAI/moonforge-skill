@@ -9,9 +9,10 @@ version: 1.5.2
 ## Overview
 
 Cleanly removes ALL MoonForge instrumentation from a game project: the SDK
-files, the init/bootstrap wiring, every analytics and error-tracking call, and
-`.moonforge.json` — leaving the game buildable. Optionally deregisters the game
-from the MoonForge dashboard. The reverse of `/moonforge`.
+files, the init/bootstrap wiring, every analytics and error-tracking call,
+`.moonforge.json`, and `MOONFORGE_EVENTS.md` — leaving the game buildable.
+Optionally deregisters the game from the MoonForge dashboard. The reverse of
+`/moonforge`.
 
 ## When to Use
 
@@ -106,7 +107,8 @@ purging them is a separate owner-side operation this skill does not perform.
 
 1. Grep the project again — expect ZERO MoonForge references
    (`MoonForge`, `moonforge`) outside any flagged value-using references the user
-   explicitly chose to keep. `.moonforge.json` and the SDK files must be gone.
+   explicitly chose to keep. `.moonforge.json`, `MOONFORGE_EVENTS.md`, and the
+   SDK files must be gone.
 2. Build check per platform (see the reference file) — the game must still build.
 3. Present a removal summary: files deleted, call sites removed, flagged items
    kept, server deregistration status.

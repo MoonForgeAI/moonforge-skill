@@ -26,7 +26,7 @@ grep -rn "MoonForgeAnalytics\.\|MoonForgeErrorTracker\.\|NetworkErrorInterceptor
 grep -rn "MoonForgeErrorTracker.Initialize" Assets/ --include="*.cs"
 
 # Config
-ls .moonforge.json 2>/dev/null
+ls .moonforge.json MOONFORGE_EVENTS.md 2>/dev/null
 ```
 
 Present the inventory grouped as: **SDK package** / **settings asset** /
@@ -58,7 +58,8 @@ which is never a deletable side-effect statement).
   `yield return request.SendWebRequest();` — the request must still be sent.
   `NetworkErrorInterceptor.ReportError(...)` statements are side-effect calls
   and are simply deleted.
-- Delete `.moonforge.json`.
+- Delete `.moonforge.json` and `MOONFORGE_EVENTS.md` (if present) — a doc
+  describing events that no longer exist is actively misleading, not just clutter.
 - Leave every flagged value-using reference in place; list them at the end.
 
 ## 3. Verify
@@ -85,4 +86,5 @@ a deleted variable still referenced), fix the removal and re-verify.
   file (compile error).
 - Forgetting `.meta` files (Unity regenerates GUID churn) or the
   `packages-lock.json` entry.
+- Forgetting `.moonforge.json` or `MOONFORGE_EVENTS.md` at the project root.
 - Scanning `Library/`/`Temp/` caches.
