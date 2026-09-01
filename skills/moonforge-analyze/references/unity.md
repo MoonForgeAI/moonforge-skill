@@ -33,7 +33,7 @@ find Assets/ -name "*.cs" -type f
 - Files containing `GameManager`, `LevelManager`, `PlayerController`
 - Files with `Shop`, `Store`, `Purchase`, `IAP` in the name
 - Files with `Ad`, `Ads`, `Rewarded`, `Interstitial`, `AdMob`, `UnityAds` in the name
-- Files containing currency/economy: `Coin`, `Gold`, `Gem`, `Currency`, `Inventory`, `Wallet`
+- Files containing currency/economy: `Coin`, `Gold`, `Gem`, `Currency`, `Inventory`, `Wallet`, `Box`, `Gacha`, `Pack`, `Unbox`, `Loot`
 - Files containing `Score`, `Achievement`, `Leaderboard`
 - Files with `Tutorial`, `Onboarding` in the name
 - Files containing `UI`, `Menu`, `HUD`, `Canvas`, `Modal`, `Popup`

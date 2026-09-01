@@ -40,7 +40,8 @@ Grep, in the project's language, for:
 - **Game loop** — `_process`, `Tick`, `update`, `love.update`, `fn update`.
 - **Progression** — `level`, `wave`, `stage`, `xp`, `unlock`.
 - **Economy** — `coin`, `gold`, `currency`, `shop`, `purchase`, `iap`, `gem`,
-  `inventory`, plus ads (`ad`, `rewarded`, `interstitial`).
+  `inventory`, `box`, `gacha`, `pack`, `unbox`, `loot`, plus ads (`ad`,
+  `rewarded`, `interstitial`).
 - **FTUE / onboarding** — `tutorial`, `onboarding`, `first_run` start/end handlers.
 - **Accounts** — `login`, `signup`, `auth`, `account`, `register` handlers.
 - **Session boundaries** — quit handlers, pause, `NOTIFICATION_WM_CLOSE_REQUEST`,

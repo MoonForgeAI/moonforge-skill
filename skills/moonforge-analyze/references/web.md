@@ -20,7 +20,8 @@ Record the flow (MainMenu → Game → GameOver).
 Grep for game loop (`requestAnimationFrame`, `update(`, `tick(`), input handlers,
 score/level managers (`score`, `level`, `wave`), shop/IAP (`shop`, `store`, `purchase`,
 `checkout`), ads (`ad`, `rewarded`, `interstitial`, ad SDKs), economy
-(`coin`, `gold`, `gem`, `currency`, `inventory`), UI/HUD/modals/popups, accounts
+(`coin`, `gold`, `gem`, `currency`, `inventory`, `box`, `gacha`, `pack`,
+`unbox`, `loot`), UI/HUD/modals/popups, accounts
 (`login`, `auth`, `account`, `user`, `signup`, `register`), tutorial/onboarding
 (`tutorial`, `onboarding`, `first_run`), save/load (`localStorage`, `save`).
 
