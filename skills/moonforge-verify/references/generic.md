@@ -26,6 +26,19 @@ finished and silently loses sessions, identity, and version.
   not send a second `alias`.
 - **Persistent distinct id**: written to disk and reloaded, not regenerated per
   launch.
+- **`first_open`**: fires once, the moment the distinct id is first created —
+  not on every first-ever `session_start` signal, which also fires after a
+  storage clear or device switch. Grep for where the distinct id getter first
+  creates one; confirm the check happens before that call, not after.
+- **`app_update`**: fires only on a later launch where the stored `appVersion`
+  differs from the current one — never on the same first-ever launch as
+  `first_open`. Grep for where the previous version gets compared/stored.
+- **No client-side geo or UTM/attribution capture**: grep for `timezone`,
+  `country`, `utm_source`, or any query-string parsing in the SDK module —
+  any hit is stale guidance and a finding, not extra coverage. Geolocation
+  and UTM/click IDs are both derived server-side from the request IP and the
+  `url` field's query string; the only client requirement is that `url`
+  isn't truncated to bare `pathname`/scene.
 - **`appVersion`**: set on every event and identify payload from the
   project's own version, read fresh at send time — not hardcoded, not the
   moonforge-skill's own version. Grep the SDK module for where it's sourced;
@@ -44,6 +57,14 @@ finished and silently loses sessions, identity, and version.
 - A User-Agent is set, unless the engine is Unity/Unreal/Godot (§3).
 - Transport errors are swallowed and cannot throw into game code.
 - A request timeout is set.
+
+## 1a. Locked event taxonomy
+
+If any revenue/economy/FTUE/account event was instrumented (`iap_*`, `ad_*`,
+`economy_transaction`, `tutorial_start`/`tutorial_complete`,
+`account_created`), run `moonforge-verify/references/telemetry-checks.md` —
+including confirming `account_created` is never sent without a preceding
+`identify` call in the same handler.
 
 ## 1b. Call sites
 

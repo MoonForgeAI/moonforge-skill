@@ -3,6 +3,7 @@ const DISTINCT_ID_KEY = 'mf_distinct_id';
 const SESSION_ID_KEY = 'mf_session_id';
 const SESSION_TS_KEY = 'mf_session_ts';
 const ALIASED_KEY = 'mf_aliased';
+const LAST_VERSION_KEY = 'mf_last_version';
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_ENDPOINT = 'https://collector.moonforge.co';
 
@@ -55,6 +56,33 @@ export function getDistinctId() {
 export function setDistinctId(id) { if (id) lset(DISTINCT_ID_KEY, id); }
 
 /**
+ * True only when no distinct_id has ever been stored on this device - i.e.
+ * this is the exact moment to fire `first_open`. Must be called before
+ * anything else calls `getDistinctId()` (which creates one as a side
+ * effect), and only ever answers truthfully once per device: the id it
+ * detects the absence of here is the same one every subsequent call creates.
+ */
+export function isFirstOpen() { return lget(DISTINCT_ID_KEY) === null; }
+
+/**
+ * Returns the previous appVersion seen on this device, but only when one was
+ * already stored AND it differs from the current one - i.e. this is the
+ * moment to fire `app_update`. Returns undefined (and just silently
+ * establishes the baseline) on a device's genuine first-ever launch, where
+ * there is nothing yet to compare against - that is `first_open`'s moment,
+ * not this one. Updates the stored value as a side effect either way, so
+ * calling this more than once in the same session is safe (fires at most
+ * once per actual version change).
+ */
+export function checkAppUpdate() {
+  const current = state.config?.appVersion;
+  if (!current) return undefined;
+  const previous = lget(LAST_VERSION_KEY);
+  lset(LAST_VERSION_KEY, current);
+  return previous && previous !== current ? previous : undefined;
+}
+
+/**
  * True once this device has ever sent an `alias` linking an anonymous id to
  * a real one. Persistent (not the in-memory `identified` buffering flag,
  * which resets every page load) - a returning, already-identified player's
@@ -73,6 +101,35 @@ export function getSessionId() {
 }
 export function resetSession() { const id = uuid(); lset(SESSION_ID_KEY, id); lset(SESSION_TS_KEY, String(Date.now())); return id; }
 
+/**
+ * Builds session_start's locked payload: session_id, plus previous_session_id
+ * when this call rotates the session after the inactivity timeout
+ * (re-engagement) - lets the collector chain consecutive sessions from the
+ * same device that got split apart by real inactivity, rather than each
+ * looking like an unrelated fresh session. No client context (geo/timezone/
+ * attribution) belongs here - see collectAutoFields()'s url fix for how
+ * attribution is actually handled.
+ */
+export function prepareSessionStart() {
+  const now = Date.now();
+  const last = parseInt(lget(SESSION_TS_KEY) ?? '0', 10);
+  let id = lget(SESSION_ID_KEY);
+  let previous_session_id;
+
+  if (!id || !last) {
+    id = uuid();
+  } else if (now - last > SESSION_TIMEOUT_MS) {
+    previous_session_id = id;
+    id = uuid();
+  }
+  lset(SESSION_ID_KEY, id);
+  lset(SESSION_TS_KEY, String(now));
+
+  const data = { session_id: id };
+  if (previous_session_id) data.previous_session_id = previous_session_id;
+  return data;
+}
+
 export function getUserProps() { return { ...state.userProps }; }
 export function setUserProp(k, v) { state.userProps = { ...state.userProps, [k]: v }; }
 export function removeUserProp(k) { const n = { ...state.userProps }; delete n[k]; state.userProps = n; }
@@ -87,7 +144,11 @@ export function collectAutoFields() {
   const nav = globalThis.navigator ?? {}; const scr = globalThis.screen ?? {};
   return {
     game: state.config?.gameId, id: getDistinctId(),
-    url: `${loc.pathname ?? ''}${loc.hash ?? ''}`, title: doc.title ?? '',
+    // Query string included deliberately: the collector parses utm_*/click-ID
+    // fields straight out of this url server-side (new URL(url) -> searchParams),
+    // for every event - confirmed against its own ingestion source, not inferred.
+    // Stripping it (as this used to) silently starved that whole pipeline.
+    url: `${loc.pathname ?? ''}${loc.search ?? ''}${loc.hash ?? ''}`, title: doc.title ?? '',
     referrer: doc.referrer ?? '',
     screen: scr.width && scr.height ? `${scr.width}x${scr.height}` : '',
     language: nav.language ?? '', hostname: loc.hostname ?? '', timestamp: unixSeconds(),

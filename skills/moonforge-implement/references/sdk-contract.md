@@ -31,8 +31,13 @@ generate path.
 | `identify(userId, traits)` | Sets the distinct id, emits `identify`, releases the pre-identify buffer. |
 | `set_user_property(k, v)` | Persistent property merged into every later event's `data`. |
 | **Session lifecycle** | `session_start` on init. `session_end` on the engine's quit hook with `{ session_id, duration_seconds }`. A fresh session after an inactivity timeout (default 1800s) carrying `previous_session_id`. |
+| **`first_open`** | Fires once per device, the moment its distinct id is first created — before anything else can call the distinct-id getter (which creates one as a side effect). Not the same as "the first `session_start`": that only signals "no `previous_session_id`," which also fires after a storage clear or a device switch. This is the install signal ad platforms report against for CPI/ROAS — it deliberately re-fires on a reinstall/storage-clear for a returning player, matching Firebase's `first_open`/GA4's `first_visit`. Goes through the same pre-identify buffer as `session_start` (no special-casing needed — it's a normal event). |
+| **`app_update`** | Fires once, on a returning device's `session_start`, when the configured `appVersion` differs from the last one this device saw — `{ previous_version }`. Never fires on a device's genuine first-ever launch (nothing stored to compare against — that's `first_open`'s moment). Self-gating: compare-then-store on every init is safe to call unconditionally. |
 | **Pre-identify buffering** | Events emitted before `identify` are held (cap 50) and rewritten to the real id when it lands. Flush anonymously after ~10s if identify never comes — losing them is worse than an anonymous id. Without this, everything before login is stranded: it is what made two thirds of one real game's players look like single-day visitors. |
 | **Alias on first identify** | Buffering only protects the ~10s/50-event window. Most players play anonymously for far longer than that before ever creating an account — the *common* case, not the edge case — so by the time `identify` is ever called, their landing `session_start` is almost always already flushed under the anonymous id. On the **first** `identify(userId, ...)` call this device has ever made (track this persistently — not the in-memory buffering flag, which resets every page load), send an `alias` event linking the anonymous id to the real one **before** anything else, so the collector can reconcile the two into one player. Never fire it again for this device unless identity is reset (e.g. logout on a shared device). Never buffer it — same as `identify`. Without this, every player who signs up more than ~10 seconds into their first session becomes two permanently separate player records: an anonymous one holding all their pre-signup activity, and a real one with none of it. |
+| **`account_created`** (games with accounts) | Fires when signup completes: `{ signup_method, provider? }`. Call `identify()` **first**, then `track_event("account_created", ...)` — two separate calls, always in that order, never combined and never inferred from `identify` alone (a returning player's first `identify` on a *new* device is a login, not a signup). See `moonforge-events/references/telemetry-model.md` for the enum values. |
+| **`tutorial_start` / `tutorial_complete`** | Locked FTUE events — fire whenever the game has any onboarding, regardless of genre. `tutorial_complete` carries optional `outcome` (`completed` \| `skipped`). Per-step tutorial detail is a separate, game-specific event (not locked) — see the telemetry model. |
+| **Locked revenue/economy catalog** | `iap_initiated`, `iap_completed`, `ad_started`, `ad_completed`, `ad_impression`, `economy_transaction` — exact names and required/optional properties are in `moonforge-events/references/telemetry-model.md`. Zero deviation: copy verbatim, never rename. |
 | **Persistent distinct id** | Created once, stored on disk, reused across launches. Never derived from a device fingerprint or IP. |
 | **Transport** | Off the main thread, 2–5s timeout, correct User-Agent, every error swallowed. |
 | `flush()` | Best-effort drain, for use before quit. |
@@ -96,8 +101,13 @@ succeeds on it — never repeated afterward unless identity is explicitly reset.
 | `appVersion` | The game's own version, read fresh at send time — not cached from a value that could go stale, not the skill's version. |
 | `screen`, `language` | Send whenever the platform can provide them (see the capability table above) — not optional in the "don't bother" sense, only in the "may not exist on this platform" sense. |
 | `previous_id` (alias only) | The anonymous id being replaced. Required on `alias`, absent everywhere else. |
+| `url` | **Must include the query string** (`pathname + search + hash`, not just `pathname + hash`) when the platform has one. The collector parses `utm_*`/click IDs straight out of this field server-side for every event — confirmed against its own ingestion code, not inferred. Truncating the query string silently starves that entire pipeline; this happened for real and went unnoticed for a long time. Do **not** build any client-side UTM-parsing or attribution-persistence code — there is nothing else to wire beyond not stripping this field. |
 
-Optional, safe to omit: `url`, `title`, `referrer`, `hostname`.
+Optional, safe to omit (but never truncate `url` if the platform has one — see above): `title`, `referrer`, `hostname`.
+
+Also **never** send `country`/`region`/`city`/`timezone` — the collector
+derives geolocation from the request IP, more reliably than any client-side
+locale/OS guess. Client-side capture here is a step backward, not extra data.
 
 ## The User-Agent trap
 
@@ -136,6 +146,11 @@ framework offers:
 - The first-ever `identify` on a fresh device sends an `alias` (previous
   anonymous id → real id) before the `identify` itself; a second `identify`
   call does not send another one.
+- `first_open` fires once, on a genuinely fresh distinct id — and never again
+  on a later launch from the same (persisted) device.
+- `app_update` fires only when a previously-stored `appVersion` differs from
+  the current one — never on a device's first-ever launch.
+- `url` retains its query string (not truncated to bare `pathname`/scene).
 - A transport failure cannot propagate into game code.
 
 If the project has no test framework and the user does not want one added, say

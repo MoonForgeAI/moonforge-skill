@@ -39,7 +39,10 @@ Grep, in the project's language, for:
 
 - **Game loop** — `_process`, `Tick`, `update`, `love.update`, `fn update`.
 - **Progression** — `level`, `wave`, `stage`, `xp`, `unlock`.
-- **Economy** — `coin`, `gold`, `currency`, `shop`, `purchase`, `iap`.
+- **Economy** — `coin`, `gold`, `currency`, `shop`, `purchase`, `iap`, `gem`,
+  `inventory`, plus ads (`ad`, `rewarded`, `interstitial`).
+- **FTUE / onboarding** — `tutorial`, `onboarding`, `first_run` start/end handlers.
+- **Accounts** — `login`, `signup`, `auth`, `account`, `register` handlers.
 - **Session boundaries** — quit handlers, pause, `NOTIFICATION_WM_CLOSE_REQUEST`,
   `OnPreExit`. Note these specifically: the generated SDK registers its
   `session_end` hook here, so knowing whether the engine exposes one — and
@@ -58,13 +61,22 @@ instrumented by this path before.
 ## 5. Output the game profile
 
 Same format as the other platforms — Game ID, Genre, Screens/flow, Core Systems,
-Existing Analytics, SDK Status — with two additions that matter downstream:
+Monetization, Economy Resources, Accounts, UI Surfaces, Existing Analytics,
+SDK Status — with additions that matter downstream:
 
+- **Monetization** — none / IAP / ads / both (from economy/shop/ad greps).
+- **Economy Resources** — currency/item types found, or "none" / "unknown".
+- **Accounts** — yes/no (same signal as player identity below).
+- **UI Surfaces** — major menus/modals/store beyond scene/screen flow.
+- **Instrumentation Targets** — table of file + hook + suggested locked/custom
+  events (IAP, ads, economy, FTUE, accounts, actions). Not attribution —
+  attribution/geolocation are server-side and automatic, never a generic-path
+  instrumentation target.
 - **Language and idiom** — the generated SDK is written in it, so note the
   language, its test framework (if any), and where the project keeps source.
-- **Player identity** — does the game have accounts, or does it need a generated
-  persistent id? This decides whether `identify` and pre-identify buffering are
-  in scope.
+- **Player identity / Accounts** — does the game have accounts, or does it need
+  a generated persistent id? This decides whether `identify`/`account_created`
+  and pre-identify buffering are in scope.
 - **Quit hook** — which notification the engine exposes for shutdown. The
   generated SDK needs it for `session_end`.
 - **Display and locale** — does the project have a window/viewport at all, or

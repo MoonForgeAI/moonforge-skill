@@ -6,8 +6,8 @@ Tracks three changes originating from a review of `pr-10` (the abandoned
 | # | Change | Status |
 |---|--------|--------|
 | 1 | Identity reconciliation (alias) | **Done** — committed, pushed |
-| 2 | Core locked event catalog | **Decided** — ready to implement |
-| 3 | Event inventory export | **Decided** — ready to implement |
+| 2 | Core locked event catalog | **Done** — implemented, tested, documented |
+| 3 | Event inventory export | Decided — not yet implemented |
 
 ---
 
@@ -59,7 +59,36 @@ PR: https://github.com/MoonForgeAI/moonforge-skill/pull/new/feat-eventing-improv
 
 ---
 
-## Change 2: Core Locked Event Catalog
+## Change 2: Core Locked Event Catalog — Done
+
+### What shipped
+
+- **SDK (`core.js`/`analytics.js`/`index.js`):** `isFirstOpen()`/`checkAppUpdate()`/
+  `prepareSessionStart()` in `core.js`; `trackFirstOpen`/`trackAppUpdate`/
+  `trackSessionStart`/`trackTutorialStart`/`trackTutorialComplete`/
+  `trackAccountCreated`/`trackEconomyTransaction`/`trackIapInitiated`/
+  `trackIapCompleted`/`trackAdStarted`/`trackAdCompleted`/`trackAdImpression`
+  in `analytics.js`; `first_open`/`app_update` wired into `init()`, exported
+  on `MoonForgeAnalytics`. The `url` fix (`collectAutoFields()` now includes
+  `location.search`) landed as a one-line change — no attribution module was
+  needed, per the corrected understanding above.
+- **Tests:** full coverage for every new/changed piece — `isFirstOpen`,
+  `checkAppUpdate` (including the "no fire on first launch" and "no fire
+  without appVersion" cases), `prepareSessionStart` chaining, the `url`
+  query-string fix, `first_open`/`app_update` end-to-end via `init()`
+  (including "does not repeat on a later launch"), and all locked revenue/
+  economy/FTUE/account helpers. 49/49 tests passing.
+- **Docs:** `moonforge-events/SKILL.md` (tier remap, new locked events, wrong
+  client-geo/attribution guidance removed), new
+  `moonforge-events/references/telemetry-model.md` (canonical registry),
+  new `moonforge-implement/references/telemetry-implement.md` (hook recipes),
+  new `moonforge-verify/references/telemetry-checks.md` (taxonomy checks),
+  `sdk-contract.md` (new capability rows, corrected `url`/geo guidance),
+  `moonforge-implement/references/{web,generic}.md`,
+  `moonforge-verify/references/{web,unity,generic}.md`,
+  `moonforge-analyze/references/{web,unity,generic}.md` (new profile
+  signals: Monetization, Economy Resources, Accounts, UI Surfaces),
+  `moonforge-events/references/{web,generic}-auto-tracked.md`.
 
 ### From `pr-10`: keep as-is
 
@@ -87,14 +116,18 @@ on `pr-10` before that branch was abandoned:
 
 ### From `pr-10`: needs rework, not a straight port
 
-- **UTM/attribution capture** (`context-capture.js`'s `collectAttribution()`) —
-  the concept is right, but it depended on two things neither of which existed
-  yet: the `url` field actually carrying a query string (it was stripped to
-  `pathname + hash`, confirmed via production data — `utm_source`/`gclid`/
-  `url_query` are 0% populated across every game, always), and the alias
-  mechanism (Change 1) to keep first-touch attribution from being orphaned
-  under an anonymous id. Both blockers are now resolved or in progress —
-  worth re-adding, sequenced correctly this time.
+- **UTM/attribution capture** — `pr-10`'s own client-side
+  `context-capture.js`/`collectAttribution()` module is **not** being ported.
+  Confirmed directly against the collector's ingestion source: it already
+  parses `utm_source`/`utm_medium`/`utm_campaign`/`utm_content`/`utm_term`/
+  click IDs straight out of the `url` field itself (`new URL(url, base)` →
+  `.searchParams.get(...)`) for every `type: 'event'` payload — universal,
+  not scoped to any event name. The only real blocker was `url` never
+  carrying a query string to parse (stripped to `pathname + hash`, confirmed
+  via production data — `utm_source`/`gclid`/`url_query` are 0% populated
+  across every game, always). So the actual fix is a single line in
+  `collectAutoFields()`, not a ported module — no first-touch persistence,
+  no attribution-parsing code, no localStorage keys.
 
   **Bundling hazard, not a bug to fix:** `context-capture.js` doesn't exist
   on `main`/this branch at all — `country`/`region`/`city` were never
@@ -269,19 +302,22 @@ session, nothing fires.
 4. ~~**`account_created` tiering.**~~ **Decided:** P1, gated on
    `moonforge-analyze`'s existing Accounts signal, same pattern as revenue
    being gated on Monetization.
-5. ~~**Sequencing of the UTM/attribution rework.**~~ **Decided:** bring it
-   into this same change, sequenced right after `first_open`'s core mechanism
-   (buffer + alias) is built. Ship the `url` query-string fix (include
-   `location.search`) as part of this too — it's the blocking prerequisite,
-   confirmed via production data to be why `utm_source`/`gclid`/`url_query`
-   are 0% populated today. Attach UTM/click-ID capture to **`first_open`
-   specifically, once per device** — not to every `session_start` the way
-   `pr-10` did — since first-touch attribution is exactly what `first_open`
-   represents, and this reuses the buffer + alias treatment `first_open`
-   already needs rather than requiring separate reconciliation logic.
-   Multi-touch/retargeting attribution (a later UTM link on a returning
-   session) is an explicit non-goal for this pass. `country`/`region`/`city`
-   needs no decision — confirmed unchanged, see above.
+5. ~~**Sequencing of the UTM/attribution rework.**~~ **Decided, and simpler
+   than first scoped:** confirmed directly against the collector's own
+   ingestion code (not inferred) that `utm_source`/`utm_medium`/`utm_campaign`/
+   `utm_content`/`utm_term`/click IDs are parsed server-side straight out of
+   the `url` field (`new URL(url, base)` → `.searchParams.get(...)`) for
+   every `type: 'event'` payload — this is universal per-event logic, not
+   scoped to any particular event name. So **no new client-side
+   attribution/UTM module is needed at all** — the only fix is the one already
+   identified: include `location.search` in `url` (`collectAutoFields()`),
+   applied the same way for every event. There's no bespoke "attach to
+   `first_open` specifically" mechanism to build — it falls out for free,
+   since `first_open` fires first, before any client-side navigation could
+   strip the query string, the same way a later `session_start` naturally
+   won't carry it once the browser's moved on. No first-touch persistence, no
+   localStorage, no `pr-10`-style attribution module ported. `country`/
+   `region`/`city` needs no decision — confirmed unchanged, see above.
 6. ~~**Should `identify()` / `account_created` be combined into one call?**~~
    **Decided: stay separate.** Two calls at the signup handler —
    `identify(userId, traits)` first, then `trackAccountCreated({ signup_method,
@@ -359,7 +395,7 @@ this formalizes that existing output into a saved artifact.
 - [x] Added `tutorial_start`/`tutorial_complete` (locked, P1) — universal FTUE-completion signal; per-step tracking stays game-specific/P3
 - [x] Added `app_update` (locked, P0, auto) — `previous_version` property, fires on version change since last session
 - [x] `identify()`/`account_created`: **stay separate** — `identify()` then `trackAccountCreated()`, plain helper, no new API surface
-- [x] Sequencing: UTM/attribution rework **lands in Change 2**, attached to `first_open` (once per device, first-touch only), plus the `url` query-string fix as its prerequisite. `country`/`region`/`city` confirmed unchanged (never broken on this branch).
+- [x] Sequencing: UTM/attribution rework **lands in Change 2**, and it's just the `url` query-string fix — confirmed against collector source that it parses UTM/click-IDs from `url` itself, universally per-event; no ported attribution module needed. `country`/`region`/`city` confirmed unchanged (never broken on this branch).
 - [x] Event inventory doc: file location → root-level **`MOONFORGE_EVENTS.md`**
 - [x] Event inventory doc: format → **markdown only**
 - [x] Event inventory doc: regenerate policy → **full overwrite every `/moonforge:verify` run**, "do not edit by hand" header

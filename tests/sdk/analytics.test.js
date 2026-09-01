@@ -82,3 +82,77 @@ describe('analytics', () => {
     expect(warn).toHaveBeenCalled();
   });
 });
+
+// Locked revenue/economy catalog: same names/schemas across every game.
+// Ported from pr-10's telemetry-helpers.test.js.
+describe('locked revenue/economy helpers', () => {
+  it('trackEconomyTransaction uses economy_transaction with the flat input/output schema', async () => {
+    const f = mockFetchOk();
+    a.trackEconomyTransaction({
+      reason: 'upgrade_weapon',
+      inputs: [{ type: 'gold', before: 500, after: 200 }],
+      outputs: [{ type: 'weapon_t7', before: 0, after: 1 }],
+    });
+    await Promise.resolve();
+    const b = lastBody(f);
+    expect(b.payload.name).toBe('economy_transaction');
+    expect(b.payload.data).toMatchObject({
+      reason: 'upgrade_weapon',
+      input_1_type: 'gold', input_1_before: 500, input_1_after: 200,
+      output_1_type: 'weapon_t7', output_1_before: 0, output_1_after: 1,
+    });
+  });
+
+  it('trackIapInitiated/trackIapCompleted use the locked iap_* names', async () => {
+    const f = mockFetchOk();
+    a.trackIapInitiated({ product_id: 'gems_100', price: 4.99, currency: 'USD', store: 'web' });
+    a.trackIapCompleted({ product_id: 'gems_100', price: 4.99, currency: 'USD', transaction_id: 'tx-1', store: 'web' });
+    await Promise.resolve();
+    const bodies = f.mock.calls.map((c) => JSON.parse(c[1].body));
+    expect(bodies[0].payload.name).toBe('iap_initiated');
+    expect(bodies[1].payload.name).toBe('iap_completed');
+    expect(bodies[1].payload.data).toMatchObject({ transaction_id: 'tx-1', store: 'web' });
+  });
+
+  it('trackAdStarted/trackAdCompleted/trackAdImpression use the locked ad_* names', async () => {
+    const f = mockFetchOk();
+    a.trackAdStarted({ ad_type: 'rewarded', placement: 'level_end' });
+    a.trackAdCompleted({ ad_type: 'rewarded', placement: 'level_end', watched_fraction: 1, rewarded: true });
+    a.trackAdImpression({ ad_type: 'banner', placement: 'home' });
+    await Promise.resolve();
+    const names = f.mock.calls.map((c) => JSON.parse(c[1].body).payload.name);
+    expect(names).toEqual(['ad_started', 'ad_completed', 'ad_impression']);
+  });
+});
+
+describe('tutorial_start / tutorial_complete', () => {
+  it('trackTutorialStart/trackTutorialComplete send the locked names, outcome optional', async () => {
+    const f = mockFetchOk();
+    a.trackTutorialStart();
+    a.trackTutorialComplete({ outcome: 'skipped' });
+    await Promise.resolve();
+    const bodies = f.mock.calls.map((c) => JSON.parse(c[1].body));
+    expect(bodies[0].payload.name).toBe('tutorial_start');
+    expect(bodies[1].payload.name).toBe('tutorial_complete');
+    expect(bodies[1].payload.data.outcome).toBe('skipped');
+  });
+});
+
+describe('account_created', () => {
+  it('trackAccountCreated sends signup_method (required) and provider (optional)', async () => {
+    const f = mockFetchOk();
+    a.trackAccountCreated({ signup_method: 'social', provider: 'google' });
+    await Promise.resolve();
+    const b = lastBody(f);
+    expect(b.payload.name).toBe('account_created');
+    expect(b.payload.data).toMatchObject({ signup_method: 'social', provider: 'google' });
+  });
+
+  it('omits provider when not given, rather than sending it empty', async () => {
+    const f = mockFetchOk();
+    a.trackAccountCreated({ signup_method: 'email' });
+    await Promise.resolve();
+    const b = lastBody(f);
+    expect(b.payload.data).toEqual({ signup_method: 'email' });
+  });
+});

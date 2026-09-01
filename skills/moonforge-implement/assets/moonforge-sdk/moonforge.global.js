@@ -5,6 +5,7 @@
   var SESSION_ID_KEY = "mf_session_id";
   var SESSION_TS_KEY = "mf_session_ts";
   var ALIASED_KEY = "mf_aliased";
+  var LAST_VERSION_KEY = "mf_last_version";
   var SESSION_TIMEOUT_MS = 30 * 60 * 1e3;
   var DEFAULT_ENDPOINT = "https://collector.moonforge.co";
   var ErrorLevel = Object.freeze({ Info: "info", Warning: "warning", Error: "error", Fatal: "fatal" });
@@ -82,6 +83,17 @@
   function setDistinctId(id) {
     if (id) lset(DISTINCT_ID_KEY, id);
   }
+  function isFirstOpen() {
+    return lget(DISTINCT_ID_KEY) === null;
+  }
+  function checkAppUpdate() {
+    var _a;
+    const current = (_a = state.config) == null ? void 0 : _a.appVersion;
+    if (!current) return void 0;
+    const previous = lget(LAST_VERSION_KEY);
+    lset(LAST_VERSION_KEY, current);
+    return previous && previous !== current ? previous : void 0;
+  }
   function hasAliased() {
     return lget(ALIASED_KEY) === "1";
   }
@@ -106,6 +118,24 @@
     lset(SESSION_TS_KEY, String(Date.now()));
     return id;
   }
+  function prepareSessionStart() {
+    var _a;
+    const now = Date.now();
+    const last = parseInt((_a = lget(SESSION_TS_KEY)) != null ? _a : "0", 10);
+    let id = lget(SESSION_ID_KEY);
+    let previous_session_id;
+    if (!id || !last) {
+      id = uuid();
+    } else if (now - last > SESSION_TIMEOUT_MS) {
+      previous_session_id = id;
+      id = uuid();
+    }
+    lset(SESSION_ID_KEY, id);
+    lset(SESSION_TS_KEY, String(now));
+    const data = { session_id: id };
+    if (previous_session_id) data.previous_session_id = previous_session_id;
+    return data;
+  }
   function getUserProps() {
     return { ...state.userProps };
   }
@@ -128,7 +158,7 @@
     lset(ALIASED_KEY, "");
   }
   function collectAutoFields() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
     const loc = (_a = globalThis.location) != null ? _a : {};
     const doc = (_b = globalThis.document) != null ? _b : {};
     const nav = (_c = globalThis.navigator) != null ? _c : {};
@@ -136,14 +166,18 @@
     return {
       game: (_e = state.config) == null ? void 0 : _e.gameId,
       id: getDistinctId(),
-      url: `${(_f = loc.pathname) != null ? _f : ""}${(_g = loc.hash) != null ? _g : ""}`,
-      title: (_h = doc.title) != null ? _h : "",
-      referrer: (_i = doc.referrer) != null ? _i : "",
+      // Query string included deliberately: the collector parses utm_*/click-ID
+      // fields straight out of this url server-side (new URL(url) -> searchParams),
+      // for every event - confirmed against its own ingestion source, not inferred.
+      // Stripping it (as this used to) silently starved that whole pipeline.
+      url: `${(_f = loc.pathname) != null ? _f : ""}${(_g = loc.search) != null ? _g : ""}${(_h = loc.hash) != null ? _h : ""}`,
+      title: (_i = doc.title) != null ? _i : "",
+      referrer: (_j = doc.referrer) != null ? _j : "",
       screen: scr.width && scr.height ? `${scr.width}x${scr.height}` : "",
-      language: (_j = nav.language) != null ? _j : "",
-      hostname: (_k = loc.hostname) != null ? _k : "",
+      language: (_k = nav.language) != null ? _k : "",
+      hostname: (_l = loc.hostname) != null ? _l : "",
       timestamp: unixSeconds(),
-      appVersion: (_l = state.config) == null ? void 0 : _l.appVersion
+      appVersion: (_m = state.config) == null ? void 0 : _m.appVersion
     };
   }
   var IDENTIFY_GRACE_MS = 1e4;
@@ -260,14 +294,82 @@
     }
     return true;
   }
+  function flatRow(data, prefix, rows, max = 3) {
+    rows.slice(0, max).forEach((row, i) => {
+      const n = i + 1;
+      if (row.type != null) data[`${prefix}_${n}_type`] = row.type;
+      if (row.before != null) data[`${prefix}_${n}_before`] = row.before;
+      if (row.after != null) data[`${prefix}_${n}_after`] = row.after;
+    });
+  }
   function trackEvent(name, data = {}, opts = {}) {
     if (!ensure()) return void 0;
     return postEvent({ type: "event", payload: { ...collectAutoFields(), name, data: { ...getUserProps(), ...data } } }, opts);
+  }
+  function trackSessionStart(extra = {}) {
+    if (!ensure()) return void 0;
+    return trackEvent("session_start", { ...prepareSessionStart(), ...extra });
+  }
+  function trackFirstOpen() {
+    if (!ensure()) return void 0;
+    return trackEvent("first_open", {});
+  }
+  function trackAppUpdate(previousVersion) {
+    if (!ensure()) return void 0;
+    return trackEvent("app_update", { previous_version: previousVersion });
   }
   function trackScreenView(name) {
     if (!ensure()) return void 0;
     const auto = collectAutoFields();
     return postEvent({ type: "event", payload: { ...auto, name: "screen_view", title: name || auto.title, data: { ...getUserProps(), screen_name: name } } });
+  }
+  function trackEconomyTransaction({ reason, inputs = [], outputs = [] } = {}) {
+    const data = { reason };
+    flatRow(data, "input", inputs);
+    flatRow(data, "output", outputs);
+    return trackEvent("economy_transaction", data);
+  }
+  function trackIapInitiated({ product_id, price, currency, product_name, store: store2 } = {}) {
+    const data = { product_id, price, currency };
+    if (product_name != null) data.product_name = product_name;
+    if (store2 != null) data.store = store2;
+    return trackEvent("iap_initiated", data);
+  }
+  function trackIapCompleted({ product_id, price, currency, transaction_id, product_name, store: store2 } = {}) {
+    const data = { product_id, price, currency, transaction_id };
+    if (product_name != null) data.product_name = product_name;
+    if (store2 != null) data.store = store2;
+    return trackEvent("iap_completed", data);
+  }
+  function trackAdStarted({ ad_type, placement, provider, ...rest } = {}) {
+    const data = { ad_type, placement, ...rest };
+    if (provider != null) data.provider = provider;
+    return trackEvent("ad_started", data);
+  }
+  function trackAdCompleted({ ad_type, placement, watched_fraction, provider, rewarded, duration_seconds, ...rest } = {}) {
+    const data = { ad_type, placement, watched_fraction, ...rest };
+    if (provider != null) data.provider = provider;
+    if (rewarded != null) data.rewarded = rewarded;
+    if (duration_seconds != null) data.duration_seconds = duration_seconds;
+    return trackEvent("ad_completed", data);
+  }
+  function trackAdImpression({ ad_type, placement, provider, ...rest } = {}) {
+    const data = { ad_type, placement, ...rest };
+    if (provider != null) data.provider = provider;
+    return trackEvent("ad_impression", data);
+  }
+  function trackTutorialStart() {
+    return trackEvent("tutorial_start", {});
+  }
+  function trackTutorialComplete({ outcome } = {}) {
+    const data = {};
+    if (outcome != null) data.outcome = outcome;
+    return trackEvent("tutorial_complete", data);
+  }
+  function trackAccountCreated({ signup_method, provider } = {}) {
+    const data = { signup_method };
+    if (provider != null) data.provider = provider;
+    return trackEvent("account_created", data);
   }
   function identify(userId, traits = {}) {
     if (!ensure()) return void 0;
@@ -470,7 +572,7 @@
     if (globalThis.__mfSessionActive) return;
     globalThis.__mfSessionActive = true;
     sessionStartedAt = Date.now();
-    trackEvent("session_start", { session_id: getSessionId() });
+    trackSessionStart();
   }
   function endSpan() {
     if (!globalThis.__mfSessionActive) return;
@@ -527,6 +629,10 @@
   function init2(options = {}) {
     const cfg = init(options);
     if (!cfg) return void 0;
+    const firstOpen = isFirstOpen();
+    const previousVersion = checkAppUpdate();
+    if (firstOpen) trackFirstOpen();
+    if (previousVersion) trackAppUpdate(previousVersion);
     installAutoCapture();
     if (cfg.autoTrackSession) startSession();
     if (cfg.trackNetworkErrors) installFetchInterceptor();
@@ -537,6 +643,17 @@
     trackEvent,
     trackScreenView,
     identify,
+    // Locked revenue/economy catalog - same names/schemas across every game.
+    trackEconomyTransaction,
+    trackIapInitiated,
+    trackIapCompleted,
+    trackAdStarted,
+    trackAdCompleted,
+    trackAdImpression,
+    // Locked FTUE/account events - see docs/eventing-improvements-plan.md.
+    trackTutorialStart,
+    trackTutorialComplete,
+    trackAccountCreated,
     setUserProperty,
     removeUserProperty,
     clearUserProperties,

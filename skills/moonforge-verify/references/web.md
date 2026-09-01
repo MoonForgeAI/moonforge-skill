@@ -6,6 +6,13 @@
 - Syntax: `node --check` each SDK file and each modified game file. If the project
   uses TypeScript, run `npx tsc --noEmit`; if ESLint is configured, run `npx eslint`
   on the touched files.
+- If the bundled SDK was modified rather than copied as-is: confirm `url` in
+  `collectAutoFields()` still includes `location.search` — a re-truncation
+  back to bare `pathname` silently starves the collector's UTM/click-ID
+  parsing for every event. Confirm no client-side geo (`country`/`region`/
+  `city`/`timezone`) or UTM-parsing code was added — both are server-side.
+- If any locked event (revenue/economy/FTUE/accounts) was instrumented, run
+  the checks in `moonforge-verify/references/telemetry-checks.md`.
 
 ## 2. Live collector check
 **A 200 does not mean the event was stored.** The collector runs a bot filter on
@@ -29,7 +36,11 @@ tracking was instrumented.
 
 ## 3. Runtime check (manual)
 Ask the user to run the game and watch the browser Network tab for POSTs to
-`/api/send` (and `/api/errors`). `session_start` should fire on load.
+`/api/send` (and `/api/errors`). `session_start` **and** `first_open` should
+both fire on a fresh browser profile / cleared localStorage (a normal reload
+must **not** re-fire `first_open`). If the project's own version differs from
+a previously-seen one (e.g. bump `appVersion` in `init()` and reload), confirm
+`app_update` fires with `previous_version`.
 
 ## 4. Present the event inventory
 List the events instrumented, their trigger sites, and any P0 auto-tracked events.

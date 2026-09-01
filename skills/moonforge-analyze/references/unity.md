@@ -32,12 +32,29 @@ find Assets/ -name "*.cs" -type f
 **Priority scripts to read:**
 - Files containing `GameManager`, `LevelManager`, `PlayerController`
 - Files with `Shop`, `Store`, `Purchase`, `IAP` in the name
+- Files with `Ad`, `Ads`, `Rewarded`, `Interstitial`, `AdMob`, `UnityAds` in the name
+- Files containing currency/economy: `Coin`, `Gold`, `Gem`, `Currency`, `Inventory`, `Wallet`
 - Files containing `Score`, `Achievement`, `Leaderboard`
 - Files with `Tutorial`, `Onboarding` in the name
-- Files containing `UI`, `Menu`, `HUD`, `Canvas`
-- Files with `Save`, `Load`, `Progress` in the name
+- Files containing `UI`, `Menu`, `HUD`, `Canvas`, `Modal`, `Popup`
+- Files with `Save`, `Load`, `Progress`, `Login`, `Account`, `Auth` in the name
 
 Read each to understand what the game does — don't just list them.
+
+While scanning, build **Instrumentation Targets** rows for implement:
+- **IAP** — `ProcessPurchase`, `IStoreListener`, shop buy handlers
+- **Ads** — rewarded/interstitial show/complete callbacks
+- **Economy** — wallet/inventory mutate methods (suggest `economy_transaction` + `reason`)
+- **FTUE** — onboarding start/end handlers (`tutorial_start`/`tutorial_complete`)
+- **Accounts** — signup completion handler (`Identify` then `account_created`, in that order — never inferred from `Identify` alone)
+- **Actions** — level/round/quest win/fail handlers discovered in core systems
+
+Note for the profile: **Monetization** (none / IAP / ads / both), **Economy
+resources** (currency/item type names found, or "unknown"/"none"), **Accounts**
+(yes/no — login/auth/profile present), **UI surfaces** (major menus, modals,
+store/payment overlays beyond scenes). Geolocation and UTM/attribution are
+**not** profile signals here — both are server-side and automatic; do not
+scan for or recommend client-side capture of either.
 
 ### 4. Check Existing Analytics
 
@@ -94,11 +111,20 @@ Present findings to user as structured summary:
 **Genre:** [inferred]
 **Scenes:** [ordered list with flow arrows]
 **Core Systems:** [list of key MonoBehaviours with descriptions]
+**Monetization:** [none | IAP | ads | both]
+**Economy Resources:** [list of currencies/items detected, or "none" / "unknown"]
+**Accounts:** [yes | no]
+**UI Surfaces:** [major menus/modals/store beyond scenes, or "scenes only"]
 **Existing Analytics:** [any TrackEvent calls found, or "None"]
 **Existing Error Tracking:** [any CaptureException/AddBreadcrumb calls, or "None"]
 **Network Requests:** [scripts using UnityWebRequest, or "None"]
 **SDK Status:** [installed/not installed]
 **SDK Config:** [key settings if MoonForgeSettings found]
+
+**Instrumentation Targets:** (for implement — file + method + suggested events)
+| System | File | Method / hook | Suggested events |
+|--------|------|---------------|------------------|
+| [IAP / ads / economy / FTUE / accounts / actions] | | | |
 ```
 
 ## Common Mistakes

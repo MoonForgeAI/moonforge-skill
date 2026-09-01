@@ -243,23 +243,25 @@ events as written. Needs updating to match on `price` (and `ad_completed`'s
 ad-revenue fields, if/when those carry one) once this pipeline is actually
 built out.
 
-## Related, separate issue: UTM/click-ID data is currently always empty
+## Related issue: UTM/click-ID data has been empty until now
 
-**Not part of this change** — flagging it here only because it compounds
-directly with the identity problem above, and because fixing it is what will
-make the `argMin` bug in item 4 above actually visible/worth fixing.
+Not part of the alias mechanism itself, but landing in the same
+`feat-eventing-improvements` branch (Change 2) — flagging it here because it
+compounds directly with the identity problem above, and because fixing it is
+what will make the `argMin` bug in item 4 above actually visible/worth fixing.
 
-The web SDK's `url` field currently strips the query string before sending
+The web SDK's `url` field has been stripping the query string before sending
 (`pathname + hash` only, no `search`) — so `utm_source`, `utm_medium`,
 `utm_campaign`, `gclid`, `fbclid`, and `url_query` have been empty in
 `game_event`, for every game, always. Confirmed directly against production
 data: zero non-empty rows for any of those columns in the last 30 days across
-433M+ events, while `url_path`/`hostname` are populated on ~100% of events —
-so the collector's existing `url`+`hostname` → UTM/click-ID parsing pipeline
-is alive and working, it has simply never been given a query string to parse.
-The one-line client fix (include `location.search` in `url`) is straightforward
-but deliberately **not** bundled into this alias work — worth its own change
-whenever it's picked up.
+433M+ events, while `url_path`/`hostname` are populated on ~100% of events.
+Confirmed **directly against the collector's own ingestion source** (not
+inferred this time) that it parses `utm_source`/`utm_medium`/`utm_campaign`/
+`utm_content`/`utm_term`/click IDs straight out of the `url` field via
+`new URL(url, base)` → `.searchParams.get(...)`, for every `type: 'event'`
+payload — so the one-line client fix (include `location.search` in `url`) is
+sufficient on its own; no other SDK-side attribution code is needed.
 
 ## Suggested verification once this and the alias mechanism are both live
 

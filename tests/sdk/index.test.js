@@ -5,6 +5,13 @@ async function fresh() {
   return import('../../skills/moonforge-implement/assets/moonforge-sdk/index.js');
 }
 
+/** Stubs fetch and returns the mock, for tests that just need to inspect what got sent. */
+function mockInit() {
+  const f = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) }));
+  vi.stubGlobal('fetch', f);
+  return f;
+}
+
 beforeEach(() => { try { localStorage.clear(); } catch {} });
 
 describe('index wiring', () => {
@@ -79,5 +86,48 @@ describe('index wiring', () => {
     const ends = bodies.filter((n) => n === 'session_end').length;
     expect(starts).toBe(2);   // init + re-visible
     expect(ends).toBe(2);     // hidden + pagehide
+  });
+
+  it('first_open fires once on a device\'s first-ever init, never again after', async () => {
+    const f = mockInit();
+    const sdk = await fresh();
+    sdk.MoonForgeAnalytics.init({ gameId: 'g-1', appVersion: '1.0.0' });
+    sdk.MoonForgeAnalytics.markIdentified();
+    await Promise.resolve();
+    const namesFirstInit = f.mock.calls.map((c) => JSON.parse(c[1].body).payload.name);
+    expect(namesFirstInit).toContain('first_open');
+    expect(namesFirstInit.filter((n) => n === 'first_open').length).toBe(1);
+
+    // Same device, a later launch (module re-imported, but localStorage - and
+    // so the distinct_id - persists): must not fire again.
+    f.mockClear();
+    vi.resetModules();
+    const sdk2 = await import('../../skills/moonforge-implement/assets/moonforge-sdk/index.js');
+    sdk2.MoonForgeAnalytics.init({ gameId: 'g-1', appVersion: '1.0.0' });
+    sdk2.MoonForgeAnalytics.markIdentified();
+    await Promise.resolve();
+    const namesSecondInit = f.mock.calls.map((c) => JSON.parse(c[1].body).payload.name);
+    expect(namesSecondInit).not.toContain('first_open');
+  });
+
+  it('app_update fires on a later init with a different appVersion, not on the first-ever one', async () => {
+    const f = mockInit();
+    const sdk = await fresh();
+    sdk.MoonForgeAnalytics.init({ gameId: 'g-1', appVersion: '1.0.0' });
+    sdk.MoonForgeAnalytics.markIdentified();
+    await Promise.resolve();
+    const namesFirstInit = f.mock.calls.map((c) => JSON.parse(c[1].body).payload.name);
+    expect(namesFirstInit).not.toContain('app_update'); // first-ever launch -> first_open's moment, not this one
+
+    f.mockClear();
+    vi.resetModules();
+    const sdk2 = await import('../../skills/moonforge-implement/assets/moonforge-sdk/index.js');
+    sdk2.MoonForgeAnalytics.init({ gameId: 'g-1', appVersion: '1.1.0' }); // version changed
+    sdk2.MoonForgeAnalytics.markIdentified();
+    await Promise.resolve();
+    const bodies = f.mock.calls.map((c) => JSON.parse(c[1].body));
+    const update = bodies.find((b) => b.payload.name === 'app_update');
+    expect(update).toBeTruthy();
+    expect(update.payload.data.previous_version).toBe('1.0.0');
   });
 });

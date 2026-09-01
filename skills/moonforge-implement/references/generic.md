@@ -66,6 +66,15 @@ separate usable data from a pile of anonymous events.
   comes back empty, not on the first engine that doesn't have a one-line
   answer.
 
+- **Source `url`** as a scene/context marker (e.g. `scene://LevelName`, matching
+  the Unity convention) if the engine has no browser-style URL. If the
+  engine's launch mechanism *can* carry a deep link with query parameters
+  (a mobile build opened via a marketing link, for example), include that
+  query string verbatim rather than dropping it — the collector parses
+  `utm_*`/click IDs straight out of this field server-side, so truncating it
+  silently starves that pipeline. Do not build any separate attribution
+  capture — there's nothing else to wire beyond not truncating this field.
+
 Then instrument the selected events, one diff per change with approval, exactly
 as on the other platforms.
 
