@@ -127,6 +127,122 @@ however ingestion is actually structured today.
    marts rely on, including the `first_utm_source`/`first_utm_campaign`
    columns this whole effort is trying to make useful.
 
+## Guardrail: don't treat `alias` volume as a signup count
+
+`alias` fires on **any** device's first-ever `identify()` call — including a
+returning, already-registered player logging into their existing account on a
+new phone, a cleared browser, or after a reinstall. That's expected and
+correct (it's exactly what lets that device's brief pre-login anonymous
+window merge into the same canonical id as the rest of that player's
+activity) — but it means `alias` counts are not a proxy for new-account
+volume. The actual "a new account was created" signal is the separate
+`account_created` event (see the eventing-improvements-plan.md for its
+schema) — a returning player logging in on new hardware produces an `alias`
+but **not** an `account_created`. Any dashboard or report answering "how
+many new accounts today" should key off `account_created`, never off a count
+of `alias` rows, or it will overcount new users by including every
+existing-player device switch, reinstall, and storage clear.
+
+## New finding: `mart_player_info` has no signup-date column
+
+Confirmed directly against the live schema (`DESCRIBE TABLE analytics.mart_player_info`):
+every column is a generic per-event aggregate — `first_seen_at`, `last_seen_at`,
+`first_country`/`first_os`/`first_device`/`first_language`/`first_version`/
+`first_utm_source`/`first_utm_campaign`/`first_referrer_domain` and their
+`last_*` counterparts, plus `total_sessions`/`total_events`/`days_active`.
+Nothing captures "when did this player's account get created" as its own
+field — this is the "do we have signup_date anywhere" question this whole
+effort started from, and the answer today is no.
+
+This doesn't need the same generic-ingestion treatment as an ordinary event
+count (`mart_event_daily`/`mart_event_property_daily` already handle "how
+many `X` happened" for any event name/property with zero schema changes,
+confirmed by their generic `(game_id, event_name, ...)` grouping). A signup
+date is a *per-player milestone*, not an aggregate over all events, so it
+needs its own explicit column the same way `first_country` etc. do. Proposed:
+
+```sql
+ALTER TABLE mart_player_info ADD COLUMN account_created_at SimpleAggregateFunction(min, Nullable(DateTime))
+-- populated via: minIf(created_at, event_name = 'account_created')
+```
+
+`first_open` doesn't need an equivalent addition — `first_seen_at` (already
+`min(created_at)` per player) already *is* the install date once `first_open`
+ships, since it will always be the earliest event any device sends.
+
+## Open question: revenue / lifetime value in `mart_player_info`
+
+Not decided, flagging for the collector/mart team to weigh in on. Once the
+locked `iap_completed` events are flowing (see the eventing-improvements-plan.md
+for the schema), player lifetime value (LTV) becomes answerable — but it isn't
+clear yet whether it belongs *in* `mart_player_info` as a maintained column
+(e.g. `lifetime_revenue SimpleAggregateFunction(sum, Decimal)`, updated the
+same incremental way as `total_sessions`/`total_events`) or whether it should
+stay a derived/on-demand query against raw revenue data instead. Related to,
+but distinct from, the existing `game_revenue`/`game_revenue_mv` gap below —
+even once that's fixed, LTV specifically is a per-player rollup question the
+existing tables don't attempt today. Worth deciding alongside whatever fix
+`game_revenue_mv` gets, since both touch the same underlying IAP event data.
+
+## New finding: `previous_session_id` already flows in, but nothing resolves it
+
+The session-lineage twin of the `account_created_at` gap above, and closer in
+shape to the alias problem than the others here. `session_start`'s
+`previous_session_id` (fired on re-engagement after the inactivity timeout —
+see `prepareSessionStart()`/`resetSession()` in `core.js`) isn't a fixed
+column on `game_event` either; it lands generically in `game_event_data` as a
+property on the `session_start` event, same as `reason`/`signup_method`. This
+already works today with **zero ingestion changes needed** — confirmed
+directly: `SELECT count() FROM game_event_data WHERE data_key =
+'previous_session_id'` returns **4,710 rows across 3 games already sending
+it**, from the old Unity SDK (which already set this field, independent of
+this `pr-10`/`feat-eventing-improvements` work) — proving the generic EAV
+pipeline has handled it fine all along, for whatever games happen to send it.
+
+**But nothing downstream resolves it.** Searched every table/materialized
+view definition in the `analytics` database for any reference to
+`previous_session_id` — zero matches. `mart_session_info` is bare-bones
+(`session_id`, `distinct_id`, `first_seen`, `last_seen`) with no chain/lineage
+column at all. So even for the 3 games already sending this, there's
+currently no way to answer "how many sessions chained into one continuous
+visit" or "time since this player's previous session" without a raw query
+walking `game_event_data` by hand.
+
+This is the same *shape* of problem as the alias work above — a
+`previous_id`-style link that only becomes useful once something resolves the
+chain at mart-build time rather than per-query. Two options, in increasing
+usefulness:
+1. **Minimal:** add `previous_session_id` as a column on `mart_session_info`,
+   sourced straight from the `session_start` event's data — lets consumers
+   walk the chain themselves.
+2. **More useful:** pre-resolve chains into a stable grouping id (a "visit"
+   spanning all sessions chained by inactivity-timeout re-engagement) the
+   same way alias resolution collapses `previous_id` chains to one canonical
+   id above — turns "sessions per visit" and "days since last visit" into a
+   direct group-by instead of recursive chain-walking in every query.
+
+(Note: `game_event`'s existing `visit_id` column is **not** this — confirmed
+empirically it's near-unique per event, not a session-spanning grouping, so
+it doesn't already solve this.)
+
+## Related, separate issue: `game_revenue_mv` won't recognize the new revenue events
+
+Not part of this change, and not urgent — confirmed with the team that
+`game_revenue` currently has zero rows and isn't used anywhere yet — but
+worth fixing whenever revenue/LTV work above is picked up, since it depends
+on the same underlying data. `game_revenue_mv`'s current definition finds
+revenue by substring-matching `data_key`:
+```sql
+... WHERE positionCaseInsensitive(data_key, 'revenue') > 0
+INNER JOIN (... WHERE positionCaseInsensitive(data_key, 'currency') > 0) ...
+```
+The locked `iap_completed` schema (see eventing-improvements-plan.md) sends
+`price`/`currency`/`product_id`/`transaction_id` — no `data_key` containing
+the substring `'revenue'` at all, so this view will never fire for the new
+events as written. Needs updating to match on `price` (and `ad_completed`'s
+ad-revenue fields, if/when those carry one) once this pipeline is actually
+built out.
+
 ## Related, separate issue: UTM/click-ID data is currently always empty
 
 **Not part of this change** — flagging it here only because it compounds
