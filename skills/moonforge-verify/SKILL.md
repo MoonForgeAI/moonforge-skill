@@ -1,7 +1,7 @@
 ---
 name: moonforge-verify
 description: Use when verifying that MoonForge analytics instrumentation compiles correctly and events reach the collector endpoint
-version: 1.5.2
+version: 1.6.0
 ---
 
 # MoonForge Verify

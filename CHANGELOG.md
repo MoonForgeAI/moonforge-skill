@@ -6,6 +6,68 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.6.0] — 2026-09-01
+
+### Added
+
+- **Identity reconciliation via `alias`.** A player's pre-signup anonymous
+  activity was permanently orphaned from their real account once they signed
+  up — the pre-identify buffer only covers a ~10s/50-event window, which
+  doesn't help a genuinely new player who plays anonymously for any real
+  length of time before ever creating an account. The web SDK now sends a
+  new `alias` event (`{ id, previous_id }`) on a device's first-ever
+  `identify()` call, gated by a persistent flag distinct from the in-memory
+  buffering flag, so the collector can reconcile the two ids into one player.
+  Unity/generic SDKs are now held to this too (`sdk-contract.md`).
+- **`first_open`.** Fires once per device, the moment its distinct id is
+  first created — the install signal (matches Firebase's `first_open`/GA4's
+  `first_visit`), distinct from "the first `session_start`," which also
+  fires after a storage clear or device switch and can't tell those apart
+  from a genuine install.
+- **`app_update`.** Fires once, on a returning device's `session_start`,
+  when `appVersion` differs from the last one seen for that device —
+  `{ previous_version }`.
+- **`tutorial_start` / `tutorial_complete`.** Locked FTUE events, universal
+  across every game regardless of genre or how deep the tutorial goes.
+  `tutorial_complete` carries an optional `outcome` (`completed` \| `skipped`).
+- **`account_created`.** Locked signup event (`signup_method`, optional
+  `provider`) for games with real accounts. Always called after `identify()`,
+  never combined or inferred from it — a returning player's first `identify()`
+  on a new device is a login, not a signup.
+- **Locked revenue/economy catalog.** `iap_initiated`, `iap_completed`,
+  `ad_started`, `ad_completed`, `ad_impression` (locked names, required/optional
+  props, locked `ad_type`/`store` enums), and `economy_transaction` (one name
+  for every economic state change, flat `input_N`/`output_N` schema) — the
+  same names and required keys on every game, every engine.
+- **Session chaining.** Re-engagement `session_start` (after the inactivity
+  timeout) now carries `previous_session_id`, linking consecutive sessions
+  from the same device.
+- **`MOONFORGE_EVENTS.md`.** `moonforge-verify` now writes the event
+  inventory to the project root as a file, grouped by tier, regenerated (full
+  overwrite) on every run — not just presented once in chat. `moonforge-uninstall`
+  deletes it alongside `.moonforge.json`.
+- Tier remap in `moonforge-events`: P0 = core/auto (session, install, update),
+  P1 = revenue + FTUE/accounts + atomic game actions, P2 = economy + UI gaps,
+  P3 = optional engagement — replacing the old genre-recipe-first P1. New
+  `moonforge-analyze` profile signals feed this: Monetization, Economy
+  Resources, Accounts, UI Surfaces.
+
+### Fixed
+
+- **The `url` field silently dropped the query string** (`pathname + hash`
+  only), which meant `utm_source`/`utm_medium`/`utm_campaign`/click IDs had
+  been empty in the collector's data for every game, always — confirmed
+  directly against production data and against the collector's own ingestion
+  code, which parses these straight out of `url`'s query string for every
+  event. No other attribution capture is needed; this one field was the
+  entire blocker.
+
+### Notes
+
+- Geolocation (`country`/`region`/`city`) remains entirely server-side,
+  derived from the request IP — this was already correct and is unchanged.
+  No client-side geo or timezone capture was added anywhere in this release.
+
 ## [1.5.2] — 2026-08-28
 
 ### Changed

@@ -1,7 +1,7 @@
 ---
 name: moonforge-analyze
 description: Use when scanning a game project on any engine to understand its structure, scenes, scripts, and existing analytics before instrumenting events
-version: 1.5.2
+version: 1.6.0
 ---
 
 # MoonForge Analyze
