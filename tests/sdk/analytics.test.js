@@ -114,6 +114,33 @@ describe('locked revenue/economy helpers', () => {
     expect(bodies[1].payload.data).toMatchObject({ transaction_id: 'tx-1', store: 'web' });
   });
 
+  it('trackEconomyTransaction warns and keeps the first 3 slots when given more', async () => {
+    const f = mockFetchOk();
+    const warn = (await import('vitest')).vi.spyOn(console, 'warn').mockImplementation(() => {});
+    a.trackEconomyTransaction({
+      reason: 'open_bundle',
+      outputs: [1, 2, 3, 4, 5].map((n) => ({ type: `item_${n}`, before: 0, after: 1 })),
+    });
+    await Promise.resolve();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('only 3 slots'));
+    const d = lastBody(f).payload.data;
+    expect(d.output_3_type).toBe('item_3');
+    expect(d.output_4_type).toBeUndefined();
+    warn.mockRestore();
+  });
+
+  it('locked iap/tutorial/account helpers forward extra properties', async () => {
+    const f = mockFetchOk();
+    a.trackIapInitiated({ product_id: 'p1', price: 1, currency: 'USD', promo: 'launch' });
+    a.trackTutorialComplete({ outcome: 'completed', tutorial_id: 'onboarding_v2' });
+    a.trackAccountCreated({ signup_method: 'email', ab_bucket: 'B' });
+    await Promise.resolve();
+    const bodies = f.mock.calls.map((c) => JSON.parse(c[1].body));
+    expect(bodies[0].payload.data).toMatchObject({ product_id: 'p1', promo: 'launch' });
+    expect(bodies[1].payload.data).toMatchObject({ outcome: 'completed', tutorial_id: 'onboarding_v2' });
+    expect(bodies[2].payload.data).toMatchObject({ signup_method: 'email', ab_bucket: 'B' });
+  });
+
   it('trackAdStarted/trackAdCompleted/trackAdImpression use the locked ad_* names', async () => {
     const f = mockFetchOk();
     a.trackAdStarted({ ad_type: 'rewarded', placement: 'level_end' });

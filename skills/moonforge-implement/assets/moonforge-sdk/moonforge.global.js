@@ -295,6 +295,9 @@
     return true;
   }
   function flatRow(data, prefix, rows, max = 3) {
+    if (rows.length > max) {
+      console.warn(`[MoonForge] economy_transaction: ${rows.length} ${prefix}s given but only ${max} slots exist - the extras are dropped. Split this into multiple transactions.`);
+    }
     rows.slice(0, max).forEach((row, i) => {
       const n = i + 1;
       if (row.type != null) data[`${prefix}_${n}_type`] = row.type;
@@ -329,14 +332,14 @@
     flatRow(data, "output", outputs);
     return trackEvent("economy_transaction", data);
   }
-  function trackIapInitiated({ product_id, price, currency, product_name, store: store2 } = {}) {
-    const data = { product_id, price, currency };
+  function trackIapInitiated({ product_id, price, currency, product_name, store: store2, ...rest } = {}) {
+    const data = { product_id, price, currency, ...rest };
     if (product_name != null) data.product_name = product_name;
     if (store2 != null) data.store = store2;
     return trackEvent("iap_initiated", data);
   }
-  function trackIapCompleted({ product_id, price, currency, transaction_id, product_name, store: store2 } = {}) {
-    const data = { product_id, price, currency, transaction_id };
+  function trackIapCompleted({ product_id, price, currency, transaction_id, product_name, store: store2, ...rest } = {}) {
+    const data = { product_id, price, currency, transaction_id, ...rest };
     if (product_name != null) data.product_name = product_name;
     if (store2 != null) data.store = store2;
     return trackEvent("iap_completed", data);
@@ -358,16 +361,16 @@
     if (provider != null) data.provider = provider;
     return trackEvent("ad_impression", data);
   }
-  function trackTutorialStart() {
-    return trackEvent("tutorial_start", {});
+  function trackTutorialStart(extra = {}) {
+    return trackEvent("tutorial_start", { ...extra });
   }
-  function trackTutorialComplete({ outcome } = {}) {
-    const data = {};
+  function trackTutorialComplete({ outcome, ...rest } = {}) {
+    const data = { ...rest };
     if (outcome != null) data.outcome = outcome;
     return trackEvent("tutorial_complete", data);
   }
-  function trackAccountCreated({ signup_method, provider } = {}) {
-    const data = { signup_method };
+  function trackAccountCreated({ signup_method, provider, ...rest } = {}) {
+    const data = { signup_method, ...rest };
     if (provider != null) data.provider = provider;
     return trackEvent("account_created", data);
   }

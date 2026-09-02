@@ -39,6 +39,11 @@ the git tag are kept in lockstep.
   props, locked `ad_type`/`store` enums), and `economy_transaction` (one name
   for every economic state change, flat `input_N`/`output_N` schema) — the
   same names and required keys on every game, every engine.
+- All locked helpers (`iap_*`, `ad_*`, `tutorial_*`, `account_created`)
+  forward any extra properties you pass through to the event's `data` — the
+  locked keys just can't be renamed or omitted. `trackEconomyTransaction`
+  fills only 3 input and 3 output slots; passing more logs a `console.warn`
+  and keeps the first 3 — split into multiple transactions instead.
 - **Session chaining.** Re-engagement `session_start` (after the inactivity
   timeout) now carries `previous_session_id`, linking consecutive sessions
   from the same device.

@@ -49,6 +49,11 @@ Analytics — `MoonForgeAnalytics`:
 `trackAdImpression({ad_type, placement, provider?})`,
 `trackTutorialStart()`, `trackTutorialComplete({outcome?})`,
 `trackAccountCreated({signup_method, provider?})`,
+The `iap_*`, `ad_*`, `tutorial_*` and `account_created` helpers forward any
+extra keys you pass through to the event's `data` (the locked keys above just
+can't be renamed or omitted). `trackEconomyTransaction` fills only 3 input and
+3 output slots — passing more logs a `console.warn` and drops the rest; split
+into multiple transactions instead.
 `setUserProperty(k, v)`, `removeUserProperty(k)`, `clearUserProperties()`,
 `getDistinctId()`, `getSessionId()`, `reset()`, `flush()`.
 

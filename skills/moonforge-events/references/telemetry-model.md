@@ -110,6 +110,8 @@ universal.
 - Outputs (up to 3): `output_1_type`, `output_1_before`, `output_1_after` …
   `output_3_type`, `output_3_before`, `output_3_after`
 - Free reward → omit inputs; sink with no grant → omit outputs
+- More than 3 inputs or outputs in one change → split into multiple
+  transactions (the SDK helpers keep the first 3 and warn)
 - Do **not** duplicate auto fields (`timestamp`, scene, device, language)
 
 **Forbidden:** naming the TrackEvent after the reason

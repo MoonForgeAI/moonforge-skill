@@ -8,6 +8,9 @@ function ensure() {
 
 /** Fills up to `max` flat {type,before,after} slots as `${prefix}_N_{type,before,after}`. */
 function flatRow(data, prefix, rows, max = 3) {
+  if (rows.length > max) {
+    console.warn(`[MoonForge] economy_transaction: ${rows.length} ${prefix}s given but only ${max} slots exist - the extras are dropped. Split this into multiple transactions.`);
+  }
   rows.slice(0, max).forEach((row, i) => {
     const n = i + 1;
     if (row.type != null) data[`${prefix}_${n}_type`] = row.type;
@@ -62,15 +65,15 @@ export function trackEconomyTransaction({ reason, inputs = [], outputs = [] } = 
   return trackEvent('economy_transaction', data);
 }
 
-export function trackIapInitiated({ product_id, price, currency, product_name, store } = {}) {
-  const data = { product_id, price, currency };
+export function trackIapInitiated({ product_id, price, currency, product_name, store, ...rest } = {}) {
+  const data = { product_id, price, currency, ...rest };
   if (product_name != null) data.product_name = product_name;
   if (store != null) data.store = store;
   return trackEvent('iap_initiated', data);
 }
 
-export function trackIapCompleted({ product_id, price, currency, transaction_id, product_name, store } = {}) {
-  const data = { product_id, price, currency, transaction_id };
+export function trackIapCompleted({ product_id, price, currency, transaction_id, product_name, store, ...rest } = {}) {
+  const data = { product_id, price, currency, transaction_id, ...rest };
   if (product_name != null) data.product_name = product_name;
   if (store != null) data.store = store;
   return trackEvent('iap_completed', data);
@@ -97,18 +100,18 @@ export function trackAdImpression({ ad_type, placement, provider, ...rest } = {}
 }
 
 /** outcome: 'completed' | 'skipped'. Per-step tutorial tracking stays game-specific, not locked. */
-export function trackTutorialStart() {
-  return trackEvent('tutorial_start', {});
+export function trackTutorialStart(extra = {}) {
+  return trackEvent('tutorial_start', { ...extra });
 }
-export function trackTutorialComplete({ outcome } = {}) {
-  const data = {};
+export function trackTutorialComplete({ outcome, ...rest } = {}) {
+  const data = { ...rest };
   if (outcome != null) data.outcome = outcome;
   return trackEvent('tutorial_complete', data);
 }
 
 /** signup_method: 'email' | 'social' | 'platform' | 'guest_upgrade' | 'other'. Call after identify(). */
-export function trackAccountCreated({ signup_method, provider } = {}) {
-  const data = { signup_method };
+export function trackAccountCreated({ signup_method, provider, ...rest } = {}) {
+  const data = { signup_method, ...rest };
   if (provider != null) data.provider = provider;
   return trackEvent('account_created', data);
 }
