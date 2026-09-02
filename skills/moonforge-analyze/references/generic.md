@@ -1,8 +1,10 @@
 # MoonForge Analyze — Any Engine
 
-Use when the project is neither Unity nor web. The goal is unchanged: produce a
-game profile good enough to recommend the right events. Only the file layout
-differs.
+Use when the project is neither Unity, web, nor Unreal (Unreal has its own
+reference — `unreal.md` — since Blueprint vs. C++ authorship changes what
+can be auto-instrumented in a way none of these other engines need to
+account for). The goal here is unchanged: produce a game profile good enough
+to recommend the right events. Only the file layout differs.
 
 ## 1. Identify the engine and language
 
@@ -11,7 +13,6 @@ Look for the marker, then confirm by reading the entry point:
 | Marker | Engine |
 |---|---|
 | `project.godot` | Godot (GDScript / C#) |
-| `*.uproject` | Unreal (C++ / Blueprints) |
 | `main.lua` + `conf.lua` | LÖVE |
 | `Cargo.toml` with `bevy` | Bevy (Rust) |
 | `*.csproj` with `MonoGame` | MonoGame (C#) |
@@ -26,7 +27,6 @@ unfamiliar engine is not a blocker — the instrumentation is HTTP either way.
 Every engine has an equivalent of a scene; find whichever applies:
 
 - Godot — `.tscn` files, and `change_scene_to_file` calls.
-- Unreal — `.umap` levels, `UGameplayStatics::OpenLevel`.
 - Everything else — a state machine, a screen enum, or a `switch` in the main
   loop. Grep for `state`, `screen`, `scene`, `menu`, `level`.
 

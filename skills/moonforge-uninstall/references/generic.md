@@ -14,8 +14,7 @@ Present the full list to the user and get approval before the first deletion.
 - **Call sites** — grep for the client's function names (`track`,
   `track_event`, `MoonForge::Track`) and for `moonforge` case-insensitively.
 - **Registration** — how the client is wired in: a Godot autoload in
-  `project.godot`, a subsystem registration in Unreal, a `require`/`import`, a
-  global singleton set up at boot.
+  `project.godot`, a `require`/`import`, a global singleton set up at boot.
 - **Config** — `.moonforge.json`, `MOONFORGE_EVENTS.md`, plus any `MOONFORGE_*`
   entries in `.env`, CI config, or build scripts.
 - **Session hooks** — the quit handler the SDK registered for `session_end`, and

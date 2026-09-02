@@ -58,6 +58,9 @@ digraph uninstall {
    - **Web** — `package.json` with a game framework dependency (`phaser`, `pixi.js`,
      `three`, `@babylonjs/core`, `playcanvas`, `kaboom`, `excalibur`, `matter-js`),
      or an `index.html` referencing a game bundle / `<canvas>`.
+   - **Unreal** — `*.uproject` present. Its own path, not `generic` — removal
+     must also flag any Blueprint nodes the user manually wired in, which
+     cannot be auto-removed the same way they couldn't be auto-added.
    - **Any other engine** — `generic`. Instrumentation written by the generic
      path is hand-written HTTP calls rather than an SDK, so removal is finding
      and deleting those calls plus the helper module they go through.
@@ -68,6 +71,7 @@ digraph uninstall {
    - Generic → `references/generic.md`
    - Unity → `references/unity.md`
    - Web → `references/web.md`
+   - Unreal → `references/unreal.md`
 
 ## Universal rules (both platforms)
 

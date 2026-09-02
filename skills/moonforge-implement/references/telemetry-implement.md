@@ -170,3 +170,39 @@ Mirror the web helpers in the project's language. Generated SDK must expose:
 
 Instrument at the same hook categories as Unity: wallet mutations, store
 callbacks, ad SDK listeners, signup handlers.
+
+---
+
+## Unreal
+
+Full generation guidance, the Blueprint-callable wrapper, and the
+Blueprint-only manual-wiring fallback: `moonforge-implement/references/unreal.md`.
+From a C++ call site (a real hook exists), use the same
+`UMoonForgeBlueprintLibrary` static functions a Blueprint graph would call —
+one code path for both, not two to keep in sync:
+
+```cpp
+void AMyGameMode::ApplyUpgrade(FWeapon From, FWeapon To, float GoldCost)
+{
+    float GoldBefore = Wallet->Gold;
+    Wallet->Spend(GoldCost);
+    Inventory->Remove(From);
+    Inventory->Add(To);
+
+    UMoonForgeBlueprintLibrary::TrackEconomyTransaction(TEXT("upgrade_weapon"),
+        TEXT("gold"), GoldBefore, Wallet->Gold,          // input 1: gold spent
+        From.Id, 1.f, 0.f,                               // input 2: old weapon consumed
+        TEXT(""), 0.f, 0.f,                              // input 3: unused, left at defaults
+        To.Id, 0.f, 1.f);                                // output 1: new weapon granted
+    // Output slots 2-3 left at their defaults - omitted, not sent empty.
+}
+
+void AMyGameMode::OnSignupComplete(const FString& UserId, EMoonForgeSignupMethod Method)
+{
+    UMoonForgeBlueprintLibrary::Identify(UserId, {});
+    UMoonForgeBlueprintLibrary::TrackAccountCreated(Method);
+}
+```
+
+A Blueprint graph calls the exact same nodes visually — same function names,
+same parameters, same optional pins collapsed by default.

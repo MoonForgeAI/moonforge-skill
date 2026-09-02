@@ -23,8 +23,11 @@ Scan a Unity project to build a game profile — scene flow, key scripts, game g
    - **Web** — `package.json` with a game framework dependency (`phaser`, `pixi.js`,
      `three`, `@babylonjs/core`, `playcanvas`, `kaboom`, `excalibur`, `matter-js`),
      or an `index.html` referencing a game bundle / `<canvas>`.
-   - **Any other engine** — `generic`. Godot, Unreal, LÖVE, Bevy, MonoGame, a
-     custom C++ engine, or a game server all qualify. MoonForge's collector is a
+   - **Unreal** — `*.uproject` present. Its own path, not `generic` — Blueprint
+     vs. C++ authorship changes what can be auto-instrumented, which requires
+     detection this specific.
+   - **Any other engine** — `generic`. Godot, LÖVE, Bevy, MonoGame, a custom
+     C++ engine, or a game server all qualify. MoonForge's collector is a
      plain HTTP endpoint, so anything that can send an HTTP POST is supported.
      Every platform ends up with an SDK inside the project: web copies the
      bundled one, Unity and everything else have one generated.
@@ -32,4 +35,5 @@ Scan a Unity project to build a game profile — scene flow, key scripts, game g
 2. Load and follow the matching reference for the rest of this skill:
    - Unity → `references/unity.md`
    - Web → `references/web.md`
+   - Unreal → `references/unreal.md`
    - Generic → `references/generic.md`

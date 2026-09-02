@@ -69,11 +69,29 @@ _Last verified: <ISO date>_
 
 | Event | Trigger | Properties |
 |-------|---------|------------|
+
+## Manual Blueprint Wiring Needed (Unreal only)
+
+| Event | Blueprint-Callable Node | Properties | Suggested Location |
+|-------|------------------------|------------|---------------------|
+| `level_complete` | `TrackEvent` | `level`, `score` | `BP_GameMode`'s EventGraph, after the level-complete custom event |
 ```
 
 - P0 rows have no `Trigger` column value (they're SDK-internal, not a call
   site in game code) — use a two-column table for P0, three columns
   (`Event`/`Trigger`/`Properties`) for P1–P3.
+- **"Manual Blueprint Wiring Needed" only ever appears for Unreal**, and only
+  when `moonforge-analyze` classified the project as Blueprint-only or
+  likely Blueprint-heavy (`moonforge-analyze/references/unreal.md`) and
+  `moonforge-implement` found events with no backing C++ function to hook
+  (`moonforge-implement/references/unreal.md` §3). Omit this section
+  entirely for every other platform, and for a C++-primary Unreal project
+  with nothing deferred to it. Each row names the exact
+  `UMoonForgeBlueprintLibrary` node to add (not a raw event name the user
+  has to guess a node for), its parameters, and where in the Blueprint graph
+  it belongs when discoverable from asset naming. This section is a
+  developer checklist, not a record of completed work — never merge its
+  rows into the tiered tables above, which describe what's already done.
 - **Build the P0 table by copying `moonforge-events/references/telemetry-model.md`'s
   row set directly, not by reconstructing it from what's visible in game
   code.** `alias` in particular has no call site to grep for at all — it

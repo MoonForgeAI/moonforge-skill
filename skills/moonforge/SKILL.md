@@ -90,11 +90,14 @@ Determine the `platform` for this project by checking the current directory:
 - **Web** — `package.json` with a game framework dependency (`phaser`, `pixi.js`,
   `three`, `@babylonjs/core`, `playcanvas`, `kaboom`, `excalibur`, `matter-js`),
   or an `index.html` referencing a game bundle / `<canvas>`.
-- **Anything else** — `generic`. Unreal (`.uproject`), Godot (`project.godot`),
-  LÖVE (`main.lua`), Bevy/Rust (`Cargo.toml`), MonoGame, a custom engine, or a
-  game server all take this path. Do NOT tell the user their engine is
-  unsupported — it is not. `moonforge-implement` generates a full SDK for their
-  engine, in their language, against the same contract every platform meets.
+- **Unreal** — `*.uproject` present. Its own path (not `generic`) — Blueprint
+  vs. C++ authorship materially changes what can be auto-instrumented, which
+  `generic`'s truly-engine-agnostic guidance has no way to account for.
+- **Anything else** — `generic`. Godot (`project.godot`), LÖVE (`main.lua`),
+  Bevy/Rust (`Cargo.toml`), MonoGame, a custom engine, or a game server all
+  take this path. Do NOT tell the user their engine is unsupported — it is
+  not. `moonforge-implement` generates a full SDK for their engine, in their
+  language, against the same contract every platform meets.
 - Ambiguous (both Unity and Web markers present): ask the user which to instrument.
 - If nothing at all is recognisable: ask the user for the project path and which
   language the game is written in, then proceed as `generic`.

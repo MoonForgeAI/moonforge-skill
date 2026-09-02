@@ -7,6 +7,7 @@ user to fetch a package, run another tool, or have anything pre-installed.
 |---|---|
 | Web | Copied from this skill's `assets/moonforge-sdk/` |
 | Unity | Generated into `Assets/MoonForge/` as C# |
+| Unreal | Generated into `Source/` as C++, plus a Blueprint-callable wrapper (see below) |
 | Any other engine | Generated in the project's language |
 
 The rule: **never write a tracking call against an SDK that is not in the
@@ -42,6 +43,7 @@ generate path.
 | **Transport** | Off the main thread, 2–5s timeout, correct User-Agent, every error swallowed. |
 | `flush()` | Best-effort drain, for use before quit. |
 | **Error capture** (optional) | Hook the engine's global handler and POST to `/api/errors`, if the engine has one and the user wants it. Offer; do not assume. |
+| **Blueprint-callable exposure** (Unreal only) | Wrap the full public API — base calls plus the entire locked revenue/economy/FTUE/account catalog — in a `UBlueprintFunctionLibrary` with `UFUNCTION(BlueprintCallable)`, using `UENUM(BlueprintType)` for every locked enum (`ad_type`, `store`, `signup_method`, `outcome`) rather than free-text parameters. See `moonforge-implement/references/unreal.md`. Required unconditionally, regardless of whether the project currently uses Blueprints anywhere — it's the only thing that makes tracking calls reachable from a Blueprint graph at all, and adding it later is not something a text-based diff can retrofit into an already-Blueprint-authored game. No other platform has an equivalent requirement. |
 
 ## Wire protocol
 

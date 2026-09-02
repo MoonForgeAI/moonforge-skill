@@ -1,7 +1,8 @@
 # MoonForge Implement — Any Engine
 
-Use this when the project is neither Unity nor web. Godot, Unreal, LÖVE, Bevy,
-MonoGame, a custom C++ engine, a headless game server — all the same path.
+Use this when the project is neither Unity, web, nor Unreal (Unreal has its
+own reference — `unreal.md`). Godot, LÖVE, Bevy, MonoGame, a custom C++
+engine, a headless game server — all the same path.
 
 **You are going to write a real SDK, not a snippet.** The web path generates a
 local JS SDK into the project; do exactly the same thing here, in the project's
@@ -35,22 +36,21 @@ separate usable data from a pile of anonymous events.
 
 ## 3. Wire it up
 
-- **Register the module** so it initialises once at boot: a Godot autoload, an
-  Unreal `GameInstance` subsystem, a `require` at the entry point.
+- **Register the module** so it initialises once at boot: a Godot autoload, a
+  `require` at the entry point.
 - **Call `init`** with the game id from `.moonforge.json`.
 - **Hook quit** for `session_end` — Godot `NOTIFICATION_WM_CLOSE_REQUEST`,
-  Unreal `FCoreDelegates::OnPreExit`, Rust `Drop`/ctrl-c handler. This is the
-  single most-forgotten hook, and without it every session is open-ended.
+  Rust `Drop`/ctrl-c handler. This is the single most-forgotten hook, and
+  without it every session is open-ended.
 - **Call `identify`** after login, if the game has accounts.
 - **Source `appVersion`** from wherever the project's own version actually
-  lives — Godot's `ProjectSettings` (`application/config/version`), Unreal's
-  Project Settings version string, a `Cargo.toml` `version`, a `.csproj`
-  `<Version>`, a version constant the project already defines. Read it fresh at
-  send time, not once and cached. If nothing defines a version, ask the user —
-  do not invent one, and never substitute this skill's own version.
+  lives — Godot's `ProjectSettings` (`application/config/version`), a
+  `Cargo.toml` `version`, a `.csproj` `<Version>`, a version constant the
+  project already defines. Read it fresh at send time, not once and cached.
+  If nothing defines a version, ask the user — do not invent one, and never
+  substitute this skill's own version.
 - **Source `screen`** the same way — a real API call, not an empty string:
-  Godot `DisplayServer.window_get_size()`; Unreal
-  `UWidgetLayoutLibrary::GetViewportSize()`; LÖVE `love.graphics.getDimensions()`;
+  Godot `DisplayServer.window_get_size()`; LÖVE `love.graphics.getDimensions()`;
   Bevy the `Window` resource's `.width()`/`.height()`; MonoGame
   `GraphicsDevice.PresentationParameters.BackBufferWidth/Height`; a custom
   engine's own windowing layer (SDL `SDL_GetWindowSize`, GLFW
@@ -58,8 +58,7 @@ separate usable data from a pile of anonymous events.
   project (a game server, with no window at all) has no `screen` — omit it
   there, rather than sending a placeholder like `"0x0"`.
 - **Source `language`** the same way. Some engines have it built in — Godot
-  `OS.get_locale()`; Unreal `FInternationalization::Get().GetCurrentLanguage()`;
-  MonoGame/any .NET target `CultureInfo.CurrentCulture.Name`. Others don't —
+  `OS.get_locale()`; MonoGame/any .NET target `CultureInfo.CurrentCulture.Name`. Others don't —
   LÖVE and Bevy have no locale API — fall back to the OS locale environment
   variable (`LANG`/`LC_ALL` on Linux/macOS, `GetUserDefaultLocaleName` on
   Windows) rather than skipping it outright. Only omit if that fallback also

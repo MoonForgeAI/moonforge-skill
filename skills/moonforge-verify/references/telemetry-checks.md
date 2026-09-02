@@ -17,6 +17,15 @@ Run after the event inventory. Registry:
 
 If a tier was selected but required events are missing → **FAIL** with specific gaps.
 
+**Exception — Unreal projects classified Blueprint-only or likely
+Blueprint-heavy** (`moonforge-analyze/references/unreal.md`): an event
+absent from a grep of `Source/` is not automatically a gap. It may be
+correctly wired as a Blueprint node instead, which no grep-based check here
+can see. Cross-reference against the "Manual Blueprint Wiring Needed" list
+(`event-inventory-export.md`) and ask the user directly before reporting a
+FAIL — only report one if the event is missing from *both* the C++ source
+and that list.
+
 ## Forbidden aliases (grep — any hit is FAIL)
 
 `purchase_complete`, `purchase`, `in_app_purchase`, `buy_item`, `resource_spent`,
