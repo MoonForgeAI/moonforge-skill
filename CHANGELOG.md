@@ -6,7 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
-## [1.6.0] — 2026-09-01
+## [1.6.0] — 2026-09-04
 
 ### Added
 

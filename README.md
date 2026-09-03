@@ -1,6 +1,6 @@
 # MoonForge Skill
 
-**Version 1.5.2**
+**Version 1.6.0**
 
 An interactive skill package that instruments any game with
 [MoonForge](https://moonforge.co) analytics and error tracking — whatever engine
