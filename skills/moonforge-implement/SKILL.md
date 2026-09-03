@@ -1,7 +1,7 @@
 ---
 name: moonforge-implement
 description: Use when putting the MoonForge SDK into a game and writing tracking calls against it — copies the bundled SDK on web, generates one on Unity and every other engine, then instruments the selected events
-version: 1.5.2
+version: 1.6.0
 ---
 
 # MoonForge Implement
@@ -41,3 +41,9 @@ Write `MoonForgeAnalytics.TrackEvent()` calls into the correct locations in Unit
    - Unity → `references/unity.md` (generates C# into `Assets/MoonForge/`)
    - Web → `references/web.md` (copies the bundled SDK in)
    - Generic → `references/generic.md` (generates in the project's language)
+4. When instrumenting any locked event (revenue, economy, FTUE/accounts —
+   `iap_*`, `ad_*`, `economy_transaction`, `tutorial_start`/`tutorial_complete`,
+   `account_created`), read `references/telemetry-implement.md` for the exact
+   hook recipes per platform. Canonical names/schemas live in
+   `moonforge-events/references/telemetry-model.md` — copy them verbatim,
+   never rename.

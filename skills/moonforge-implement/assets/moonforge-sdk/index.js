@@ -31,7 +31,7 @@ function beginSpan() {
   if (globalThis.__mfSessionActive) return;
   globalThis.__mfSessionActive = true;
   sessionStartedAt = Date.now();
-  analytics.trackEvent('session_start', { session_id: core.getSessionId() });
+  analytics.trackSessionStart();
 }
 
 /**
@@ -104,6 +104,15 @@ function installFetchInterceptor(threshold = NETWORK_ERROR_STATUS_THRESHOLD) {
 function init(options = {}) {
   const cfg = core.init(options);
   if (!cfg) return undefined;
+  // Checked before anything else can call getDistinctId() (which would
+  // create one as a side effect and make isFirstOpen() always false).
+  // checkAppUpdate() self-gates: it only returns a value when a previous
+  // version was already stored and differs, so it naturally stays quiet on
+  // a device's first-ever launch (that's first_open's moment, not this one).
+  const firstOpen = core.isFirstOpen();
+  const previousVersion = core.checkAppUpdate();
+  if (firstOpen) analytics.trackFirstOpen();
+  if (previousVersion) analytics.trackAppUpdate(previousVersion);
   installAutoCapture();
   if (cfg.autoTrackSession) startSession();
   if (cfg.trackNetworkErrors) installFetchInterceptor();
@@ -115,6 +124,17 @@ export const MoonForgeAnalytics = {
   trackEvent: analytics.trackEvent,
   trackScreenView: analytics.trackScreenView,
   identify: analytics.identify,
+  // Locked revenue/economy catalog - same names/schemas across every game.
+  trackEconomyTransaction: analytics.trackEconomyTransaction,
+  trackIapInitiated: analytics.trackIapInitiated,
+  trackIapCompleted: analytics.trackIapCompleted,
+  trackAdStarted: analytics.trackAdStarted,
+  trackAdCompleted: analytics.trackAdCompleted,
+  trackAdImpression: analytics.trackAdImpression,
+  // Locked FTUE/account events - see docs/eventing-improvements-plan.md.
+  trackTutorialStart: analytics.trackTutorialStart,
+  trackTutorialComplete: analytics.trackTutorialComplete,
+  trackAccountCreated: analytics.trackAccountCreated,
   setUserProperty: analytics.setUserProperty,
   removeUserProperty: analytics.removeUserProperty,
   clearUserProperties: analytics.clearUserProperties,
@@ -126,6 +146,9 @@ export const MoonForgeAnalytics = {
   // call identify, and so tests can reset buffering between cases.
   markIdentified: core.markIdentified,
   resetBuffering: core.resetBuffering,
+  // Exposed for diagnostics/tests: whether this device has ever sent an
+  // alias linking an anonymous id to a real one.
+  hasAliased: core.hasAliased,
 };
 
 export const MoonForgeErrorTracker = {

@@ -11,8 +11,23 @@ Once that generated SDK's `init()` runs, it auto-tracks:
   `{ session_id, duration_seconds }`.
 - `session_start` (re-engagement) — after the inactivity timeout (default
   1800s), carrying `{ session_id, previous_session_id }`.
+- `first_open` — once per device, the moment its distinct id is first
+  created (the install signal — a *different* signal from "the first
+  `session_start`," which also fires after a storage clear or device switch).
+- `app_update` — once, on a returning device's `session_start`, when the
+  configured app version differs from the last one this device saw —
+  `{ previous_version }`. Never on the same first-ever launch as `first_open`.
+- `alias` — fires automatically **inside `identify()`'s own implementation**,
+  on the device's first-ever `identify()` call, linking the pre-signup
+  anonymous id to the real one. Not its own `track_event` call — it has no
+  game-code call site, which makes it easy to drop from a P0 summary built
+  from what's visible in game code rather than copied from
+  `moonforge-events/references/telemetry-model.md`.
 - `screen_view` — via `track_screen_view(name)`, wired to the engine's scene or
   screen change where one exists.
+- Geolocation and UTM/click-ID parsing are **server-side**, not something the
+  generated SDK implements — the only requirement is not truncating `url`'s
+  query string (see `sdk-contract.md`).
 
 So present P0 to the user the same way as on any other platform: **no manual
 instrumentation, it comes with the SDK.** Recommendations should start at P1.

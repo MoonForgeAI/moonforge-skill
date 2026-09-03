@@ -19,7 +19,18 @@ Record the flow (MainMenu → Game → GameOver).
 ## 4. Find core systems
 Grep for game loop (`requestAnimationFrame`, `update(`, `tick(`), input handlers,
 score/level managers (`score`, `level`, `wave`), shop/IAP (`shop`, `store`, `purchase`,
-`checkout`), UI/HUD, save/load (`localStorage`, `save`).
+`checkout`), ads (`ad`, `rewarded`, `interstitial`, ad SDKs), economy
+(`coin`, `gold`, `gem`, `currency`, `inventory`, `box`, `gacha`, `pack`,
+`unbox`, `loot`), UI/HUD/modals/popups, accounts
+(`login`, `auth`, `account`, `user`, `signup`, `register`), tutorial/onboarding
+(`tutorial`, `onboarding`, `first_run`), save/load (`localStorage`, `save`).
+
+Note for the profile: **Monetization** (none / IAP / ads / both), **Economy
+Resources**, **Accounts** (yes/no), **UI Surfaces** (menus/modals/store beyond
+scene/route flow). Geolocation and UTM/attribution are **not** profile signals
+here — both are server-side and automatic (the collector derives them from the
+request IP and the `url` field's query string); do not scan for or recommend
+client-side capture of either.
 
 ## 5. Check existing analytics
 Look for an existing MoonForge SDK (`MoonForgeAnalytics`, `moonforge-sdk`), or other
@@ -27,7 +38,13 @@ tools (`gtag`, `plausible`, `posthog`, `mixpanel`).
 
 ## 6. Infer genre and output the game profile
 Use the SAME profile format as Unity (Game ID, Genre, Scenes/flow, Core Systems,
+Monetization, Economy Resources, Accounts, UI Surfaces, **Instrumentation Targets**,
 Existing Analytics, SDK Status), adapted to web (framework instead of Unity version).
+
+Build **Instrumentation Targets** while scanning: shop/checkout handlers, ad SDK
+callbacks, currency mutations, tutorial/onboarding start/end handlers, signup
+handlers (`Identify` then `account_created`, in that order), level/score
+managers for game actions.
 
 ## Common mistakes
 - Scanning `node_modules/` or `dist/` (ignore).

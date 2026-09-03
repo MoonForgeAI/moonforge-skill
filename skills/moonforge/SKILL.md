@@ -1,7 +1,7 @@
 ---
 name: moonforge
 description: Use when instrumenting a game of any engine with MoonForge analytics and error events — analyzes the game, recommends events, generates the SDK into the project, writes the tracking calls, and verifies the setup
-version: 1.5.2
+version: 1.6.0
 ---
 
 # MoonForge Analytics Instrumentation
@@ -146,7 +146,9 @@ For each event in selected tiers, find the right file and method, write the Trac
 
 **REQUIRED SUB-SKILL:** Use moonforge-verify, passing `platform`
 
-Run compilation check, static analysis, and present event inventory.
+Run compilation check, static analysis, and present event inventory. Writes
+`MOONFORGE_EVENTS.md` to the project root so the inventory survives after
+this conversation ends.
 
 ## Quick Reference
 
@@ -295,6 +297,9 @@ The SDK automatically tracks when initialized:
 - `session_start` — on init with `{ session_id }`
 - `session_end` — on shutdown with `{ session_id, duration_seconds }`
 - Session re-engagement after `sessionTimeoutSeconds` of inactivity
+- `first_open` — once per device, the moment its distinct id is first created (the install signal)
+- `app_update` — once, on a returning device's `session_start`, when the app version differs from the last one seen
+- `alias` — fires automatically **inside `Identify()`'s own implementation** on the device's first-ever `Identify` call, linking the pre-signup anonymous id to the real one. Not its own `TrackEvent` call, so it has no call site to grep for — easy to drop if this list is reconstructed from memory instead of copied from `moonforge-events/references/telemetry-model.md`.
 - Scene changes via `TrackScreenView` on `SceneManager.sceneLoaded`
 - Unhandled exceptions, Unity log errors, native crashes (separate error pipeline)
 
@@ -312,3 +317,11 @@ The SDK automatically tracks when initialized:
   "sdkConfigured": true
 }
 ```
+
+## MOONFORGE_EVENTS.md
+
+Written by `moonforge-verify` at the end of Step 7 — the event inventory,
+saved to the project root, grouped by tier. Regenerated (full overwrite) on
+every verify run; format and rules in
+`moonforge-verify/references/event-inventory-export.md`. Deleted by
+`moonforge-uninstall` alongside `.moonforge.json`.

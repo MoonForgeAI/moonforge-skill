@@ -13,8 +13,27 @@ idempotent `init`, session lifecycle (`Application.quitting` **and**
 `OnApplicationPause` on mobile), persistent distinct id in `PlayerPrefs`,
 pre-identify buffering, unix-second timestamps, swallowed transport errors, and
 `appVersion` set to `Application.version` (read fresh at send time, not the
-skill's own version) on every event and identify call. An SDK implementing
-only `TrackEvent` looks finished while losing sessions, identity and version.
+skill's own version) on every event and identify call. Also confirm the first
+`Identify` call this install ever makes sends an `alias` first (linking the
+`PlayerPrefs`-stored anonymous id to the real one), gated by a persistent flag
+so a later `Identify` on the same install never repeats it — most players play
+anonymously well past the pre-identify buffer's window before ever creating an
+account, so without this every such signup becomes two unrelated player
+records. An SDK implementing only `TrackEvent` looks finished while losing
+sessions, identity, version, and the ability to ever reconcile them.
+
+Confirm `first_open` fires once, on this install's first-ever `TrackEvent` of
+any kind (tied to the `PlayerPrefs` distinct id being created, not to
+`session_start`'s own first-ness signal — those are different things), and
+`app_update` fires only on a later install where `Application.version`
+differs from the value last stored, never on the same first-ever launch as
+`first_open`. If any locked revenue/economy/FTUE/account event was
+instrumented (`iap_*`, `ad_*`, `economy_transaction`, `tutorial_start`/
+`tutorial_complete`, `account_created`), run
+`moonforge-verify/references/telemetry-checks.md` — including confirming
+`account_created` is never sent without a preceding `Identify` call in the
+same handler, and that no client-side geo/timezone/UTM-parsing code exists
+anywhere in the generated SDK (server-side, not a Unity concern).
 
 Confirm `MoonForgeSettings` exists in a `Resources/` folder **and carries the
 game id**. An SDK with no game id is inert, and this is the step most often
@@ -145,6 +164,13 @@ If rate-limited, events return HTTP 429. The SDK queues and retries automaticall
 ### Collector: [PASS/SKIP]
 [ping result or skipped reason]
 ```
+
+### 6. Write `MOONFORGE_EVENTS.md`
+
+Save the Event Inventory table (§3) as a file in the project root — per
+`moonforge-verify/references/event-inventory-export.md` — so it survives
+after this conversation ends. Cover every event currently in `Assets/`, not
+just what this run touched; overwrite the file completely each time.
 
 ## Common Mistakes
 

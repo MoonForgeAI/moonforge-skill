@@ -25,7 +25,10 @@ that is not in the project leaves the game broken and the job half done.
   `<script>MoonForgeAnalytics.init({ gameId: '<GAME_ID>' });</script>`
 Read `<GAME_ID>` from `.moonforge.json` (`gameId`) or ask the user.
 `init` accepts `{ gameId, apiEndpoint?, debug?, autoTrackSession?, trackNetworkErrors?, appVersion?, buildNumber? }`.
-`session_start`/`session_end` and unhandled-error capture start automatically.
+`session_start`/`session_end`, unhandled-error capture, `first_open` (once per
+device, on distinct-id creation), and `app_update` (once, when `appVersion`
+differs from the last one this device saw) all start automatically — no
+extra calls needed for any of them.
 
 **Always pass `appVersion`** — it is included on every event and identify
 call as-is. Read it from the project's own `package.json` `"version"` field
@@ -38,8 +41,28 @@ means `appVersion` is silently absent from every event.
 ## 3. Instrument events (parity with Unity)
 Analytics — `MoonForgeAnalytics`:
 `trackEvent(name, data)`, `trackScreenView(name)`, `identify(userId, traits)`,
+`trackEconomyTransaction({reason, inputs, outputs})`,
+`trackIapInitiated({product_id, price, currency, product_name?, store?})`,
+`trackIapCompleted({product_id, price, currency, transaction_id, product_name?, store?})`,
+`trackAdStarted({ad_type, placement, provider?})`,
+`trackAdCompleted({ad_type, placement, watched_fraction, provider?, rewarded?, duration_seconds?})`,
+`trackAdImpression({ad_type, placement, provider?})`,
+`trackTutorialStart()`, `trackTutorialComplete({outcome?})`,
+`trackAccountCreated({signup_method, provider?})`,
+The `iap_*`, `ad_*`, `tutorial_*` and `account_created` helpers forward any
+extra keys you pass through to the event's `data` (the locked keys above just
+can't be renamed or omitted). `trackEconomyTransaction` fills only 3 input and
+3 output slots — passing more logs a `console.warn` and drops the rest; split
+into multiple transactions instead.
 `setUserProperty(k, v)`, `removeUserProperty(k)`, `clearUserProperties()`,
 `getDistinctId()`, `getSessionId()`, `reset()`, `flush()`.
+
+The revenue/economy/FTUE helpers send the exact locked names and schemas from
+`moonforge-events/references/telemetry-model.md` — use them rather than a raw
+`trackEvent` call, so the schema can't drift. **Call `identify()` before
+`trackAccountCreated()`, never the reverse and never combined** — `identify`
+drives alias reconciliation and must run first so `account_created` already
+carries the real id.
 Errors — `MoonForgeErrorTracker`:
 `setUser(userId, tags)`, `clearUser()`, `setGameState({sceneName,gameMode,levelId})`,
 `setGameStateData(k, v)`, `addBreadcrumb(msg, {type,level,category,data})`,
@@ -50,6 +73,15 @@ Place calls at the right site per framework (e.g. Phaser `Scene.create()` for
 `trackScreenView(this.scene.key)`; level-complete handlers for
 `trackEvent('level_complete', {...})`). Show a diff for each change and get approval,
 exactly like the Unity flow.
+
+**`identify(userId, traits)` sends an `alias` automatically** the first time
+it's ever called on a device, linking the anonymous id that was tracking the
+player pre-signup to the real one — this is what lets pre-signup activity
+survive account creation instead of being permanently stranded under an id
+nobody will query again. It fires once per device; a later `identify` (a
+normal login) does not repeat it. No action needed beyond calling `identify`
+— just don't assume a fresh anonymous id after `reset()` (e.g. logout) is
+unaliasable; it correctly becomes eligible again.
 
 ## 4. Write `.moonforge.json` if missing
 `{ "gameId": "<GAME_ID>", "gameName": "<name>", "sdkConfigured": true }`.

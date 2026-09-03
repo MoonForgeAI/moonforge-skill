@@ -1,14 +1,14 @@
 ---
 name: moonforge-verify
 description: Use when verifying that MoonForge analytics instrumentation compiles correctly and events reach the collector endpoint
-version: 1.5.2
+version: 1.6.0
 ---
 
 # MoonForge Verify
 
 ## Overview
 
-Verify that instrumented analytics events compile without errors and (optionally) reach the MoonForge collector endpoint.
+Verify that instrumented analytics events compile without errors and (optionally) reach the MoonForge collector endpoint. Writes `MOONFORGE_EVENTS.md` to the project root at the end — see `references/event-inventory-export.md` — so the event inventory survives after this conversation ends.
 
 ## When to Use
 
