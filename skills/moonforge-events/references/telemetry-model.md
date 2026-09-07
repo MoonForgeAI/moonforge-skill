@@ -105,13 +105,15 @@ universal.
 - `reason` (string, required) — why it happened (game-specific:
   `upgrade_weapon`, `claim_login_reward`, `end_of_match_payout`). Bespoke
   meaning lives here.
-- Inputs (up to 3): `input_1_type`, `input_1_before`, `input_1_after` …
-  `input_3_type`, `input_3_before`, `input_3_after`
-- Outputs (up to 3): `output_1_type`, `output_1_before`, `output_1_after` …
-  `output_3_type`, `output_3_before`, `output_3_after`
+- Inputs: `input_1_type`, `input_1_before`, `input_1_after`,
+  `input_2_type`, … — numbered from 1, one triple per resource consumed.
+- Outputs: `output_1_type`, `output_1_before`, `output_1_after`,
+  `output_2_type`, … — numbered from 1, one triple per resource granted.
+- No fixed slot count. Emit one `economy_transaction` per economic state
+  change with a triple for every resource it touches, however many that is —
+  the collector stores these keys generically, so splitting a transaction to
+  fit a slot limit would only duplicate the event envelope for nothing.
 - Free reward → omit inputs; sink with no grant → omit outputs
-- More than 3 inputs or outputs in one change → split into multiple
-  transactions (the SDK helpers keep the first 3 and warn)
 - Do **not** duplicate auto fields (`timestamp`, scene, device, language)
 
 **Forbidden:** naming the TrackEvent after the reason

@@ -1,6 +1,6 @@
 {
   "name": "@moonforge/moonforge-skill",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "type": "module",
   "description": "Installs the MoonForge skill for Claude Code, Codex, Cursor, GitHub Copilot, or Windsurf.",
   "bin": {

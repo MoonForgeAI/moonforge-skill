@@ -1,7 +1,7 @@
 ---
 name: moonforge
 description: Use when instrumenting a game of any engine with MoonForge analytics and error events — analyzes the game, recommends events, generates the SDK into the project, writes the tracking calls, and verifies the setup
-version: 1.6.0
+version: 1.6.1
 ---
 
 # MoonForge Analytics Instrumentation

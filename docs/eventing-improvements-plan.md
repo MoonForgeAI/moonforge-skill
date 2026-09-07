@@ -100,7 +100,10 @@ on `pr-10` before that branch was abandoned:
   props and locked enums (`ad_type`: `rewarded`\|`interstitial`\|`banner`\|`other`;
   `store`: `app_store`\|`google_play`\|`steam`\|`web`\|`other`).
 - **Economy**: one name, `economy_transaction`, with `reason` (required) plus
-  up to 3 `input_N_type/before/after` and 3 `output_N_type/before/after` slots.
+  `input_N_type/before/after` and `output_N_type/before/after` triples.
+  (Ported from `pr-10` with a `max = 3` cap; the cap was dropped in 1.6.1 —
+  the collector stores these keys generically, so a slot limit only forced
+  needless transaction splitting. See `telemetry-model.md`.)
 - The matching SDK helpers: `trackEconomyTransaction`, `trackIapInitiated`,
   `trackIapCompleted`, `trackAdStarted`, `trackAdCompleted`, `trackAdImpression`
   (and the `flatRow` implementation backing the economy helper).

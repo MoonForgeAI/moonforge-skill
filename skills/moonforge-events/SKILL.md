@@ -1,7 +1,7 @@
 ---
 name: moonforge-events
 description: Use when recommending analytics events for a game on any engine, organizing them by priority tier (P0-P3) based on game profile analysis
-version: 1.6.0
+version: 1.6.1
 ---
 
 # MoonForge Events
@@ -123,8 +123,9 @@ craft / upgrade / rewards), recommend **only**:
 **Props** (omit unused slots; never rename keys):
 
 - `reason` (required) — game-specific why (`upgrade_weapon`, `claim_login_reward`, …)
-- `input_N_type`, `input_N_before`, `input_N_after` for N = 1..3
-- `output_N_type`, `output_N_before`, `output_N_after` for N = 1..3
+- `input_N_type`, `input_N_before`, `input_N_after` — N from 1, one per resource consumed
+- `output_N_type`, `output_N_before`, `output_N_after` — N from 1, one per resource granted
+- No slot cap — one triple per resource the transaction touches, however many
 - Free reward → omit inputs; sink with no grant → omit outputs
 
 One event per economic state change. LHS → RHS transform. Do **not** use the

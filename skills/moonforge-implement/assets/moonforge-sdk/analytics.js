@@ -6,12 +6,15 @@ function ensure() {
   return true;
 }
 
-/** Fills up to `max` flat {type,before,after} slots as `${prefix}_N_{type,before,after}`. */
-function flatRow(data, prefix, rows, max = 3) {
-  if (rows.length > max) {
-    console.warn(`[MoonForge] economy_transaction: ${rows.length} ${prefix}s given but only ${max} slots exist - the extras are dropped. Split this into multiple transactions.`);
-  }
-  rows.slice(0, max).forEach((row, i) => {
+/**
+ * Flattens each {type,before,after} row to `${prefix}_N_{type,before,after}`.
+ * No cap: the collector stores these keys generically (EAV), so N inputs cost
+ * the same whether they ride one event or several - splitting a large
+ * transaction would only duplicate the envelope. Model one economic state
+ * change as one call, however many resources it touches.
+ */
+function flatRow(data, prefix, rows) {
+  rows.forEach((row, i) => {
     const n = i + 1;
     if (row.type != null) data[`${prefix}_${n}_type`] = row.type;
     if (row.before != null) data[`${prefix}_${n}_before`] = row.before;

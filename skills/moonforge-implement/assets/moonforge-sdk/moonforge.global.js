@@ -294,11 +294,8 @@
     }
     return true;
   }
-  function flatRow(data, prefix, rows, max = 3) {
-    if (rows.length > max) {
-      console.warn(`[MoonForge] economy_transaction: ${rows.length} ${prefix}s given but only ${max} slots exist - the extras are dropped. Split this into multiple transactions.`);
-    }
-    rows.slice(0, max).forEach((row, i) => {
+  function flatRow(data, prefix, rows) {
+    rows.forEach((row, i) => {
       const n = i + 1;
       if (row.type != null) data[`${prefix}_${n}_type`] = row.type;
       if (row.before != null) data[`${prefix}_${n}_before`] = row.before;

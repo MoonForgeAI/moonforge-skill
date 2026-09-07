@@ -6,6 +6,21 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.6.1] — 2026-09-07
+
+### Changed
+
+- **`economy_transaction` no longer caps inputs/outputs at 3.**
+  `trackEconomyTransaction` now writes an `input_N_*` / `output_N_*` triple
+  for every entry passed, however many. The 1.6.0 cap (keep the first 3, warn
+  on the rest) turned out to save nothing: the collector stores these keys
+  generically, so N resources cost the same whether they ride one event or
+  several — splitting a transaction to fit a slot limit only duplicated the
+  event envelope (and inflated transaction counts). One `economy_transaction`
+  per economic state change, with a triple per resource it touches. Docs
+  (`telemetry-model.md`, `moonforge-events/SKILL.md`, web reference) updated
+  to drop the "split into multiple transactions" guidance.
+
 ## [1.6.0] — 2026-09-04
 
 ### Added

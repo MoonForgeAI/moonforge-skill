@@ -114,18 +114,22 @@ describe('locked revenue/economy helpers', () => {
     expect(bodies[1].payload.data).toMatchObject({ transaction_id: 'tx-1', store: 'web' });
   });
 
-  it('trackEconomyTransaction warns and keeps the first 3 slots when given more', async () => {
+  it('trackEconomyTransaction writes every input/output slot, no cap, no warning', async () => {
     const f = mockFetchOk();
     const warn = (await import('vitest')).vi.spyOn(console, 'warn').mockImplementation(() => {});
     a.trackEconomyTransaction({
       reason: 'open_bundle',
+      inputs: [{ type: 'key', before: 2, after: 1 }],
       outputs: [1, 2, 3, 4, 5].map((n) => ({ type: `item_${n}`, before: 0, after: 1 })),
     });
     await Promise.resolve();
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('only 3 slots'));
+    expect(warn).not.toHaveBeenCalled();
     const d = lastBody(f).payload.data;
+    expect(d.input_1_type).toBe('key');
     expect(d.output_3_type).toBe('item_3');
-    expect(d.output_4_type).toBeUndefined();
+    expect(d.output_5_type).toBe('item_5');
+    expect(d.output_5_after).toBe(1);
+    expect(d.output_6_type).toBeUndefined();
     warn.mockRestore();
   });
 
