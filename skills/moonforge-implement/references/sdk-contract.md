@@ -7,6 +7,7 @@ user to fetch a package, run another tool, or have anything pre-installed.
 |---|---|
 | Web | Copied from this skill's `assets/moonforge-sdk/` |
 | Unity | Generated into `Assets/MoonForge/` as C# |
+| Unreal | Generated into `Source/` as C++, with a `UFUNCTION(BlueprintCallable)` surface — see `references/unreal.md` |
 | Any other engine | Generated in the project's language |
 
 The rule: **never write a tracking call against an SDK that is not in the

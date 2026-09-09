@@ -13,9 +13,9 @@ The SDK's public track API needs `UFUNCTION(BlueprintCallable)` so a graph can
 reach it. Two shapes work — pick one per project:
 
 - **A thin `UBlueprintFunctionLibrary`** that forwards each call to the
-  subsystem: one clean static node per call, and the library carries no schema
-  logic of its own (pure argument forwarding), so there is nothing to keep in
-  sync with the locked model.
+  subsystem: one clean static node per call. It does no validation or
+  transformation — just passes arguments through — so it's regenerated with
+  the SDK, never maintained as a separate spec.
 - **`BlueprintCallable` directly on the subsystem**: the Blueprint author adds
   a Get-Subsystem node first, then the call. Fine — just two nodes.
 
@@ -73,7 +73,9 @@ not shipped in a build.
 
 ## 3. Blueprint-only trigger points → a wiring list, not a diff
 
-Read the profile's **Blueprint Coverage** (`moonforge-analyze/references/unreal.md`).
+Read the profile's **Blueprint Coverage** (`moonforge-analyze/references/unreal.md`),
+or run that classification yourself if `/moonforge:implement` was invoked
+standalone with no profile in the conversation.
 
 - **C++-primary** — instrument normally: find the file and method, write the
   call to the `BlueprintCallable` function, show a diff, get approval.

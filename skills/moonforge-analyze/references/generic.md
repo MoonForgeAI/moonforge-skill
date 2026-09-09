@@ -85,6 +85,10 @@ SDK Status — with additions that matter downstream:
   and pre-identify buffering are in scope.
 - **Quit hook** — which notification the engine exposes for shutdown. The
   generated SDK needs it for `session_end`.
+- **Blueprint Coverage** (Unreal only) — `C++-primary` / `Likely
+  Blueprint-heavy` / `Blueprint-only`, per `references/unreal.md`. Present it
+  early; it decides which events `moonforge-implement` can auto-instrument and
+  which become a manual checklist.
 - **Display and locale** — does the project have a window/viewport at all, or
   is it headless (a game server)? Does the engine expose a locale/language API,
   or would the generated SDK need to fall back to an OS environment variable?

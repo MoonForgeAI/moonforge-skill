@@ -35,6 +35,14 @@ Don't try to be more precise. The classification answers one question for
 `moonforge-implement`: can a text diff reach this game's trigger points? A
 wrong "C++-primary" just means implement finds the gap itself.
 
+## Game flow
+
+`generic.md` §2 expects `UGameplayStatics::OpenLevel` calls in C++. On a
+Blueprint-only or Blueprint-heavy project those live in Level Blueprints and
+won't grep — that's the finding, not a failed scan. Map the flow from the
+`.umap` file names under `Content/` (commonly `Content/Maps/`) plus what the
+user tells you, and note that the transitions are Blueprint-authored.
+
 ## What it affects
 
 - **Not P0** — `session_start`/`session_end`/`first_open`/`app_update`/`alias`
