@@ -4,6 +4,11 @@ Use when the project is neither Unity nor web. The goal is unchanged: produce a
 game profile good enough to recommend the right events. Only the file layout
 differs.
 
+**Unreal (`*.uproject`): also read `references/unreal.md` before profiling.**
+Gameplay logic in Blueprint graphs can't be grepped or diffed, so the profile
+has to classify Blueprint coverage up front — that changes which events get
+auto-instrumented later and which become a manual checklist for the user.
+
 ## 1. Identify the engine and language
 
 Look for the marker, then confirm by reading the entry point:
@@ -80,6 +85,10 @@ SDK Status — with additions that matter downstream:
   and pre-identify buffering are in scope.
 - **Quit hook** — which notification the engine exposes for shutdown. The
   generated SDK needs it for `session_end`.
+- **Blueprint Coverage** (Unreal only) — `C++-primary` / `Likely
+  Blueprint-heavy` / `Blueprint-only`, per `references/unreal.md`. Present it
+  early; it decides which events `moonforge-implement` can auto-instrument and
+  which become a manual checklist.
 - **Display and locale** — does the project have a window/viewport at all, or
   is it headless (a game server)? Does the engine expose a locale/language API,
   or would the generated SDK need to fall back to an OS environment variable?

@@ -17,7 +17,14 @@ Present the full list to the user and get approval before the first deletion.
   `project.godot`, a subsystem registration in Unreal, a `require`/`import`, a
   global singleton set up at boot.
 - **Config** — `.moonforge.json`, `MOONFORGE_EVENTS.md`, plus any `MOONFORGE_*`
-  entries in `.env`, CI config, or build scripts.
+  entries in `.env`, CI config, or build scripts. On Unreal also the
+  `UMoonForgeSettings` (`UDeveloperSettings`) class and the
+  `[/Script/<Module>.MoonForgeSettings]` section in `Config/DefaultGame.ini`.
+- **Unreal Blueprint nodes (manual)** — if `MOONFORGE_EVENTS.md` has a "Manual
+  Blueprint Wiring Needed" section, or the user confirms they wired nodes by
+  hand, those Blueprint graph edits can't be auto-removed any more than they
+  could be auto-added. List them as their own explicit step so the developer
+  knows a hand edit in the Editor is still required after this skill finishes.
 - **Session hooks** — the quit handler the SDK registered for `session_end`, and
   any scene-change hook used for `screen_view`. If the handler existed before
   instrumentation, remove only the MoonForge line; if it was added solely for
@@ -41,7 +48,9 @@ events that no longer exist once removal is done, which is actively
 misleading, not just clutter. Remove `MOONFORGE_*` from `.env`,
 `.env.example`, CI config, and any deploy script. Leaving them behind is
 harmless at runtime but strands dead config that the next reader has to
-investigate.
+investigate. On Unreal, also remove the `[/Script/<Module>.MoonForgeSettings]`
+section from `Config/DefaultGame.ini` (diff it — leave the rest of the file
+alone).
 
 ## 4. Verify the game still builds
 

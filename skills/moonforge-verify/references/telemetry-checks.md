@@ -17,6 +17,12 @@ Run after the event inventory. Registry:
 
 If a tier was selected but required events are missing → **FAIL** with specific gaps.
 
+**Unreal Blueprint-only/heavy exception:** an event absent from a grep of
+`Source/` is not automatically a gap — it may be wired as a Blueprint node,
+which no grep here can see. Cross-reference the "Manual Blueprint Wiring
+Needed" list (`event-inventory-export.md`) and ask the user before failing;
+only FAIL if the event is in neither the C++ source nor that list.
+
 ## Forbidden aliases (grep — any hit is FAIL)
 
 `purchase_complete`, `purchase`, `in_app_purchase`, `buy_item`, `resource_spent`,

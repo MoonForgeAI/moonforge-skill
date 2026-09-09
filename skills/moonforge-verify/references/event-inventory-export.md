@@ -91,6 +91,26 @@ _Last verified: <ISO date>_
   from `moonforge-events/references/telemetry-model.md`; game actions and P3
   engagement events use whatever the project actually calls them.
 
+### Manual Blueprint Wiring Needed (Unreal only)
+
+Append this section **after** the tiered tables, and only for an Unreal
+project classified Blueprint-only/Blueprint-heavy where `moonforge-implement`
+found events with no C++ hook to instrument. Omit it entirely otherwise. It is
+the developer's checklist, not a record of done work — never fold its rows
+into the tiered tables above.
+
+```markdown
+## Manual Blueprint Wiring Needed (Unreal)
+
+| Event | Node to add | Parameters | Suggested location |
+|-------|-------------|------------|--------------------|
+| `level_complete` | `TrackEvent` | `name="level_complete"`, `{level, score}` | `BP_GameMode` EventGraph, after the level-complete event |
+```
+
+Each row names the exact SDK function/node, its parameters (including which
+enum value where the wrapper uses `UENUM`), and the Blueprint asset + rough
+graph location when discoverable from asset naming.
+
 ## Regenerating on uninstall
 
 Not this skill's job — see `moonforge-uninstall`, which deletes

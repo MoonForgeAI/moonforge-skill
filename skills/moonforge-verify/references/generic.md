@@ -3,6 +3,10 @@
 The SDK here was generated rather than installed, so verification covers both
 the module that was written and the calls into it.
 
+**Unreal (`*.uproject`): also read `references/unreal.md`** — the
+Blueprint-callable surface, the `DefaultGame.ini` game-id source, and the
+manual Blueprint-wiring list are extra checks on top of everything below.
+
 ## 1. Verify the generated SDK against the parity contract
 
 Check it implements every row of the required-capabilities table in

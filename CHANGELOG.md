@@ -6,6 +6,43 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.7.0] — 2026-09-09
+
+### Added
+
+- **Unreal Blueprint-aware instrumentation.** Unreal games whose gameplay
+  logic lives in Blueprint graphs (opaque `.uasset`, no text to diff) now get
+  detected and handled instead of silently half-instrumented. Unreal stays on
+  the `generic` path; three short `references/unreal.md` supplements
+  (`moonforge-analyze`, `moonforge-implement`, `moonforge-verify`) that
+  `generic.md` routes to when a `*.uproject` is present:
+  - `moonforge-analyze` classifies **Blueprint Coverage** (`C++-primary` /
+    `Likely Blueprint-heavy` / `Blueprint-only`) and carries it into the game
+    profile.
+  - `moonforge-implement` generates the SDK's public track API as a
+    `UFUNCTION(BlueprintCallable)` surface (locked enums as
+    `UENUM(BlueprintType)` so a dropdown makes a typo'd locked value
+    impossible), and for trigger points that are pure Blueprint with no C++
+    hook, produces a **"Manual Blueprint Wiring Needed"** checklist — exact
+    node, parameters, and graph location — rather than a silent skip or a
+    doomed diff.
+  - `MOONFORGE_EVENTS.md` gains that checklist as its own section, kept
+    separate from the tiered "already done" tables.
+  - `moonforge-uninstall` (inline in `generic.md`) removes the Unreal settings
+    class and its `DefaultGame.ini` section, and flags any hand-wired
+    Blueprint nodes for manual removal.
+
+### Changed
+
+- **Generic SDKs bake the game id in as a literal, not a runtime file read.**
+  `moonforge-implement/references/generic.md` §3 previously said "call `init`
+  with the game id from `.moonforge.json`", which could be read as reading
+  that file at runtime — it isn't shipped in a packaged build (Godot `.pck`
+  export, a Bevy binary, a MonoGame build), so the shipped game would have no
+  game id. It now says explicitly: put the id in the generated bootstrap as a
+  compile-time constant, the way web does `init({ gameId })`; `.moonforge.json`
+  is a skill artifact, never a runtime config file.
+
 ## [1.6.1] — 2026-09-07
 
 ### Changed
