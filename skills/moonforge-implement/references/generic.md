@@ -14,8 +14,8 @@ That is the difference between an SDK and homework.
 
 **Unreal (`*.uproject`): also read `references/unreal.md`.** It still follows
 this file, plus three specifics — a `BlueprintCallable` surface so graphs can
-call the SDK, config from `Config/DefaultGame.ini` (a packaged build ships no
-`.moonforge.json`), and a manual wiring list for trigger points that live in
+call the SDK, where the game id comes from (the auto-init subsystem has no
+bootstrap call site), and a manual wiring list for trigger points that live in
 Blueprint.
 
 ## 1. Generate the SDK module
@@ -43,13 +43,13 @@ separate usable data from a pile of anonymous events.
 
 - **Register the module** so it initialises once at boot: a Godot autoload, an
   Unreal `GameInstance` subsystem, a `require` at the entry point.
-- **Call `init`** with the game id. Read it from `.moonforge.json` only if the
-  engine ships its source tree at runtime (Godot, LÖVE). An engine that
-  compiles to a packaged binary (Unreal, Bevy, MonoGame, a packaged Godot
-  export) won't have `.moonforge.json` on disk in a shipped build — put the id
-  in that engine's native config instead (Unreal `Config/DefaultGame.ini`, a
-  Bevy `Res<Config>` loaded from an embedded asset, a `.csproj`/appsettings
-  constant) and generate it as a compile-time or embedded value.
+- **Call `init`** with the game id, baked into the generated code at
+  generation time — the skill has the value, so put it in the bootstrap call
+  the way web does `init({ gameId: '…' })`. Do **not** have the SDK read
+  `.moonforge.json` at runtime; it's a skill artifact and is not shipped in a
+  packaged build. Where an engine has no natural bootstrap call site (Unreal's
+  auto-init subsystem), bake it as a constant or use the engine's native
+  settings mechanism — see `references/unreal.md`.
 - **Hook quit** for `session_end` — Godot `NOTIFICATION_WM_CLOSE_REQUEST`,
   Unreal `FCoreDelegates::OnPreExit`, Rust `Drop`/ctrl-c handler. This is the
   single most-forgotten hook, and without it every session is open-ended.

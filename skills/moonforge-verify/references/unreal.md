@@ -6,29 +6,30 @@ Unreal-specific.
 
 ## Blueprint-callable surface
 
-- The SDK's own public track methods carry `UFUNCTION(BlueprintCallable)` —
-  including the full locked catalog instrumented for this game. Its absence is
-  a defect on every Unreal project, Blueprint-heavy or not: without it, none of
+- The track API is `UFUNCTION(BlueprintCallable)` — either a forwarding
+  `UBlueprintFunctionLibrary` or `BlueprintCallable` on the subsystem itself,
+  covering the full locked catalog instrumented for this game. Its absence is a
+  defect on every Unreal project, Blueprint-heavy or not: without it none of
   this is reachable from a graph, and retrofitting it later isn't a text diff.
 - Locked enums (`ad_type`, `store`, `signup_method`, `outcome`) are
   `UENUM(BlueprintType)`, not `FString` params. The optional ones (`store`,
   `outcome`) carry an `Unspecified` member mapped to "omit the field" — without
-  it the wrapper forces a value the schema says is optional.
+  it the API forces a value the schema says is optional.
 - `economy_transaction` inputs/outputs take a `TArray` of a `{Type,Before,After}`
-  struct — **not** fixed `Input1Type`/`Input2Type`/… params. A capped signature
-  silently drops resources past the cap and is a finding (`economy_transaction`
+  struct — not a fixed `Input1`/`Input2`/… parameter set (a natural but wrong
+  Blueprint shape that silently drops resources past its cap; `economy_transaction`
   has no slot cap — `telemetry-model.md`).
 - This repo has no Unreal Build Tool. Read for syntactic plausibility only, and
   say so — ask the user to confirm it compiles in their Editor.
 
 ## Game id source
 
-Confirm a `UDeveloperSettings` subclass with a `Config GameId`, read from
-`Initialize()` via `GetDefault<...>()`, and a matching
-`[/Script/<Module>.MoonForgeSettings]` / `GameId=<UUID>` in
-`Config/DefaultGame.ini`. A subsystem reading `.moonforge.json` at runtime is a
-finding — that file isn't in a packaged build, so the shipped game sends
-nothing.
+The id is either a baked-in `.cpp` constant or a `UDeveloperSettings` +
+`Config/DefaultGame.ini` value (`[/Script/<Module>.MoonForgeSettings]` /
+`GameId=<UUID>`) — either is fine. A subsystem that reads `.moonforge.json` at
+runtime is a finding: that file isn't shipped in a build, so the packaged game
+sends nothing. Confirm an empty or non-UUID id makes the subsystem log once and
+no-op, not send a blank `game`.
 
 ## Manual Blueprint wiring list
 
