@@ -12,6 +12,12 @@ transport all handled inside the module you generate.
 Do not hand the user a bare `POST` example and a list of things to remember.
 That is the difference between an SDK and homework.
 
+**Unreal (`*.uproject`): also read `references/unreal.md`.** It still follows
+this file, plus three specifics — a `BlueprintCallable` surface so graphs can
+call the SDK, config from `Config/DefaultGame.ini` (a packaged build ships no
+`.moonforge.json`), and a manual wiring list for trigger points that live in
+Blueprint.
+
 ## 1. Generate the SDK module
 
 One file (two if the language wants a header), in the project's idiom and
@@ -37,7 +43,13 @@ separate usable data from a pile of anonymous events.
 
 - **Register the module** so it initialises once at boot: a Godot autoload, an
   Unreal `GameInstance` subsystem, a `require` at the entry point.
-- **Call `init`** with the game id from `.moonforge.json`.
+- **Call `init`** with the game id. Read it from `.moonforge.json` only if the
+  engine ships its source tree at runtime (Godot, LÖVE). An engine that
+  compiles to a packaged binary (Unreal, Bevy, MonoGame, a packaged Godot
+  export) won't have `.moonforge.json` on disk in a shipped build — put the id
+  in that engine's native config instead (Unreal `Config/DefaultGame.ini`, a
+  Bevy `Res<Config>` loaded from an embedded asset, a `.csproj`/appsettings
+  constant) and generate it as a compile-time or embedded value.
 - **Hook quit** for `session_end` — Godot `NOTIFICATION_WM_CLOSE_REQUEST`,
   Unreal `FCoreDelegates::OnPreExit`, Rust `Drop`/ctrl-c handler. This is the
   single most-forgotten hook, and without it every session is open-ended.

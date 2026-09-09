@@ -21,6 +21,11 @@ Look for the marker, then confirm by reading the entry point:
 If nothing matches, ask the user which engine and language, and carry on. An
 unfamiliar engine is not a blocker — the instrumentation is HTTP either way.
 
+**Unreal (`*.uproject`): also read `references/unreal.md` before profiling.**
+Gameplay logic in Blueprint graphs can't be grepped or diffed, so the profile
+has to classify Blueprint coverage up front — that changes which events get
+auto-instrumented later and which become a manual checklist for the user.
+
 ## 2. Map screens and the game flow
 
 Every engine has an equivalent of a scene; find whichever applies:
