@@ -37,24 +37,27 @@ function fit(built, limit) {
 
 /**
  * Plans the next request from the head of `queue` without changing it.
- * A batch holds entries of one game only, at most MAX_BATCH of them, under a
- * byte budget (KEEPALIVE_BUDGET_BYTES at page teardown, else MAX_BATCH_BYTES);
- * a `solo` entry (from a split rejected batch) always travels alone.
+ * A batch holds entries of one game only, at most MAX_BATCH of them, within
+ * `budget` bytes; a `solo` entry (from a split 413) always travels alone.
+ * At page teardown (`keepalive`) the caller passes what is left of the
+ * browser's shared keepalive allowance, so the plan may be empty when the
+ * next report does not fit - it then stays queued.
  * @param {ReadonlyArray<object>} queue
- * @param {{ keepalive: boolean }} opts
+ * @param {{ keepalive: boolean, budget?: number }} opts
  * @returns {{ game: string|undefined, entries: object[], items: object[], bytes: number, consumed: number, unsendable: object[] }}
- *   `consumed` = how many head entries the plan uses up (sent or unsendable).
+ *   `consumed` = how many head entries the plan uses up (sent or unsendable);
+ *   `unsendable` = entries that could never fit any request.
  */
-export function planBatch(queue, { keepalive }) {
-  const budget = keepalive ? KEEPALIVE_BUDGET_BYTES : MAX_BATCH_BYTES;
-  const limit = budget - ENVELOPE_OVERHEAD_BYTES;
+export function planBatch(queue, { keepalive, budget }) {
+  const ceiling = keepalive ? KEEPALIVE_BUDGET_BYTES : MAX_BATCH_BYTES;
+  const allowance = Math.min(budget ?? ceiling, ceiling);
   const plan = { game: undefined, entries: [], items: [], bytes: ENVELOPE_OVERHEAD_BYTES, consumed: 0, unsendable: [] };
   for (const entry of queue) {
     const game = entry.payload?.game;
     if (plan.entries.length && (plan.entries.length >= MAX_BATCH || game !== plan.game || entry.solo || plan.entries[0].solo)) break;
-    const fitted = fit(sized(entry), limit);
+    const fitted = fit(sized(entry), ceiling - ENVELOPE_OVERHEAD_BYTES);
     if (!fitted) { plan.unsendable.push(entry); plan.consumed += 1; continue; }
-    if (plan.entries.length && plan.bytes + fitted.size > budget) break;
+    if (plan.bytes + fitted.size > allowance) break;
     plan.game = game;
     plan.entries.push(entry);
     plan.items.push(fitted.item);

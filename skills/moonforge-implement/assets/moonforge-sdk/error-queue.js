@@ -10,7 +10,7 @@
 //   - paused on 429 for the collector's retryAfterMs,
 //   - held in a bounded queue that drops the oldest when full.
 // Nothing here may throw into the host game.
-import { DEFAULT_MAX_ERROR_REPORTS_PER_SESSION, debugLog, getConfig, newUuid, postErrorBatch } from './core.js';
+import { DEFAULT_MAX_ERROR_REPORTS_PER_SESSION, debugLog, getConfig, newUuid, postErrorBatch, readStored, writeStored } from './core.js';
 import { KEEPALIVE_BUDGET_BYTES, planBatch } from './error-batch.js';
 
 export { MAX_BATCH, MAX_BATCH_BYTES, KEEPALIVE_BUDGET_BYTES } from './error-batch.js';
@@ -31,7 +31,31 @@ const MAX_BACKOFF_MS = 5 * 60 * 1000;
 
 const EMPTY_STATS = Object.freeze({ sent: 0, dropped: 0, suppressed: 0, rejected: 0 });
 
-function freshSession(id) { return { id, records: new Map(), distinctReported: 0 }; }
+/**
+ * The per-session report count is persisted (localStorage, or core's in-page
+ * fallback when storage is blocked) so a reload within the same SDK session
+ * cannot reset the cap. Fingerprint dedupe state is in memory only: after a
+ * reload the next occurrence of an error is reported in full again, within
+ * the same persisted budget.
+ */
+const REPORT_COUNT_KEY = 'mf_error_reports';
+
+function loadReportCount(sessionId) {
+  try {
+    const saved = JSON.parse(readStored(REPORT_COUNT_KEY) ?? 'null');
+    return saved && saved.sessionId === sessionId && Number.isInteger(saved.count) && saved.count >= 0 ? saved.count : 0;
+  } catch { return 0; }
+}
+
+function freshSession(id) {
+  return { id, records: new Map(), distinctReported: id === null ? 0 : loadReportCount(id) };
+}
+
+/** Replaces the session's report count and persists it. */
+function setDistinctReported(count) {
+  session = { ...session, distinctReported: count };
+  if (session.id !== null) writeStored(REPORT_COUNT_KEY, JSON.stringify({ sessionId: session.id, count }));
+}
 
 let session = freshSession(null);
 let queue = [];
@@ -65,7 +89,7 @@ function discard(entries) {
     const rec = session.records.get(e.fingerprint);
     if (!e.repeat && rec && rec.queuedId === e.id) {
       session.records.delete(e.fingerprint);
-      session = { ...session, distinctReported: Math.max(0, session.distinctReported - 1) };
+      setDistinctReported(Math.max(0, session.distinctReported - 1));
     }
   }
 }
@@ -129,7 +153,7 @@ function recordFirst(fp, payload) {
     return false;
   }
   const entry = newEntry(fp, payload, 1, false);
-  session = { ...session, distinctReported: session.distinctReported + 1 };
+  setDistinctReported(session.distinctReported + 1);
   session.records.set(fp, { reported: true, queuedId: entry.id, pending: 0, lastPayload: null, lastReportAt: now });
   enqueue(entry);
   return true;
@@ -138,8 +162,9 @@ function recordFirst(fp, payload) {
 function recordRepeat(fp, rec, payload) {
   if (!rec.reported) { bump('suppressed'); return false; }
   if (rec.queuedId && incrementQueued(rec.queuedId)) return true;
-  const { breadcrumbs: _omit, ...withoutBreadcrumbs } = payload;
-  session.records.set(fp, { ...rec, queuedId: null, pending: rec.pending + 1, lastPayload: withoutBreadcrumbs });
+  // Count-only reports need neither the breadcrumb trail nor the raw stack (frames remain).
+  const { breadcrumbs: _crumbs, rawStackTrace: _raw, ...countPayload } = payload;
+  session.records.set(fp, { ...rec, queuedId: null, pending: rec.pending + 1, lastPayload: countPayload });
   scheduleFlush(FLUSH_INTERVAL_MS);
   return true;
 }
@@ -162,8 +187,8 @@ export function recordError(fingerprint, payload) {
 }
 
 /** Removes the next planned batch from the head of the queue. */
-function takeBatch(keepalive) {
-  const plan = planBatch(queue, { keepalive });
+function takeBatch(keepalive, budget) {
+  const plan = planBatch(queue, { keepalive, budget });
   queue = queue.slice(plan.consumed);
   discard(plan.unsendable);
   return plan;
@@ -185,12 +210,40 @@ function requeue(entries, { countAttempt = false, solo = false } = {}) {
 
 function isRetryable(status) { return status === 0 || status === 408 || status === 425 || status >= 500; }
 
+/**
+ * Indices of the items a 400 names (`errors.<i>.…`), or null when the
+ * rejection is request-wide (unknown game, envelope error, unparseable body) -
+ * then nothing in the batch can succeed by resending.
+ */
+function rejectedIndices(rejection, count) {
+  const paths = rejection?.paths ?? [];
+  if (!paths.length) return null;
+  const indices = new Set();
+  for (const path of paths) {
+    const m = /^errors\.(\d+)(\.|$)/.exec(path);
+    if (!m || Number(m[1]) >= count) return null;
+    indices.add(Number(m[1]));
+  }
+  return indices;
+}
+
+/** A 400: drop the items it names and resend the others once more; drop everything if request-wide. */
+function handleRejection(entries, rejection) {
+  const bad = rejectedIndices(rejection, entries.length);
+  const survivors = bad ? entries.filter((_e, i) => !bad.has(i)) : [];
+  bump('rejected', entries.length - survivors.length);
+  debugLog('error batch rejected (400)', rejection?.error, rejection?.paths);
+  // Counted as an attempt, so a collector that keeps refusing cannot loop us.
+  if (survivors.length) requeue(survivors, { countAttempt: true });
+  return 'rejected';
+}
+
 /** @returns {Promise<'sent'|'split'|'rejected'|'paused'|'failed'>} */
 async function sendBatch(plan, teardown) {
   const { entries, items } = plan;
-  // keepalive lets an ordinary send survive a navigation that happens mid-flight.
-  const keepalive = teardown || plan.bytes <= KEEPALIVE_BUDGET_BYTES;
-  const res = await postErrorBatch({ type: 'error_batch', game: plan.game, errors: items }, { keepalive });
+  // Only teardown sends use keepalive: browsers cap the TOTAL of in-flight
+  // keepalive bodies (~64KB), and that allowance is reserved for pagehide.
+  const res = await postErrorBatch({ type: 'error_batch', game: plan.game, errors: items }, { keepalive: teardown });
   if (res.ok) { failureStreak = 0; bump('sent', items.length); return 'sent'; }
   if (res.status === 429) {
     pauseFor(res.retryAfterMs ?? DEFAULT_RETRY_AFTER_MS, true);
@@ -203,10 +256,9 @@ async function sendBatch(plan, teardown) {
     requeue(entries, { countAttempt: true });
     return 'failed';
   }
-  if ((res.status === 400 || res.status === 413) && entries.length > 1) {
-    // The collector validates a batch as a whole: resend each report alone so
-    // one bad or oversized item cannot discard the others.
-    requeue(entries, { solo: true });
+  if (res.status === 400) return handleRejection(entries, res.rejection);
+  if (res.status === 413 && entries.length > 1) {
+    requeue(entries, { solo: true }); // body too large: resend each report on its own
     return 'split';
   }
   bump('rejected', items.length);
@@ -224,16 +276,26 @@ async function sendBatches(maxBatches) {
   return queue.length === 0;
 }
 
-/** Page teardown: plan every request up front and fire them together - the page may freeze at any await. */
+/**
+ * Page teardown: plan requests up front within ONE shared keepalive allowance
+ * (browsers cap the total of in-flight keepalive bodies), fire them together -
+ * the page may freeze at any await - and leave whatever does not fit queued.
+ */
 async function sendForTeardown() {
   if (isRateLimited()) return false;
   const plans = [];
+  let remaining = KEEPALIVE_BUDGET_BYTES;
   while (queue.length) {
-    const plan = takeBatch(true);
-    if (plan.items.length) plans.push(plan);
+    const plan = takeBatch(true, remaining);
+    if (!plan.items.length) {
+      if (!plan.consumed) break; // the next report does not fit what is left
+      continue;
+    }
+    plans.push(plan);
+    remaining -= plan.bytes;
   }
   const outcomes = await Promise.all(plans.map((p) => sendBatch(p, true)));
-  return outcomes.every((o) => o === 'sent' || o === 'rejected');
+  return queue.length === 0 && outcomes.every((o) => o === 'sent' || o === 'rejected');
 }
 
 function afterFlush() {

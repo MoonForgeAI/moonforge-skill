@@ -201,6 +201,13 @@ describe('core', () => {
       core.init({ gameId: 'g-1', networkErrorMinStatus: 99.5, maxErrorReportsPerSession: 1.5 });
       expect(core.getConfig()).toMatchObject({ networkErrorMinStatus: 500, maxErrorReportsPerSession: 100 });
     });
+
+    it('clamps maxErrorReportsPerSession to 1000', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      core.init({ gameId: 'g-1', appVersion: '1.0.0', maxErrorReportsPerSession: 5000 });
+      expect(core.getConfig().maxErrorReportsPerSession).toBe(1000);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('keeps distinct and session ids stable in-page when localStorage refuses access', () => {

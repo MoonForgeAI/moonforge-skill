@@ -10,6 +10,7 @@
   var DEFAULT_ENDPOINT = "https://collector.moonforge.co";
   var DEFAULT_NETWORK_ERROR_MIN_STATUS = 500;
   var DEFAULT_MAX_ERROR_REPORTS_PER_SESSION = 100;
+  var MAX_ERROR_REPORTS_PER_SESSION_LIMIT = 1e3;
   var ErrorLevel = Object.freeze({ Info: "info", Warning: "warning", Error: "error", Fatal: "fatal" });
   var BreadcrumbType = Object.freeze({ Navigation: "navigation", Network: "network", User: "user", Debug: "debug", Error: "error" });
   var BreadcrumbLevel = Object.freeze({ Debug: "debug", Info: "info", Warning: "warning", Error: "error", Fatal: "fatal" });
@@ -45,6 +46,12 @@
       memoryStore.set(k, v);
     }
   }
+  function readStored(key) {
+    return lget(key);
+  }
+  function writeStored(key, value) {
+    lset(key, value);
+  }
   function unixSeconds() {
     return Math.floor(Date.now() / 1e3);
   }
@@ -57,6 +64,12 @@
   }
   var isStatusFloor = (v) => Number.isInteger(v) && v >= 100 && v <= 600;
   var isNonNegativeInt = (v) => Number.isInteger(v) && v >= 0;
+  function reportBudget(options) {
+    const value = validOption(options, "maxErrorReportsPerSession", isNonNegativeInt, DEFAULT_MAX_ERROR_REPORTS_PER_SESSION);
+    if (value <= MAX_ERROR_REPORTS_PER_SESSION_LIMIT) return value;
+    console.warn(`[MoonForge] init: maxErrorReportsPerSession ${value} exceeds ${MAX_ERROR_REPORTS_PER_SESSION_LIMIT}; using ${MAX_ERROR_REPORTS_PER_SESSION_LIMIT}.`);
+    return MAX_ERROR_REPORTS_PER_SESSION_LIMIT;
+  }
   function init(options = {}) {
     var _a, _b, _c, _d, _e;
     if (!options.gameId) {
@@ -82,7 +95,7 @@
       // response; thrown fetches are still reported).
       networkErrorMinStatus: validOption(options, "networkErrorMinStatus", isStatusFloor, DEFAULT_NETWORK_ERROR_MIN_STATUS),
       // Distinct error reports sent per session; past it only counts are kept.
-      maxErrorReportsPerSession: validOption(options, "maxErrorReportsPerSession", isNonNegativeInt, DEFAULT_MAX_ERROR_REPORTS_PER_SESSION)
+      maxErrorReportsPerSession: reportBudget(options)
     };
     return state.config;
   }
@@ -302,6 +315,18 @@
       return void 0;
     }
   }
+  async function readRejection(res) {
+    try {
+      const d = await res.json();
+      const paths = Array.isArray(d == null ? void 0 : d.details) ? d.details.map((x) => {
+        var _a;
+        return String((_a = x == null ? void 0 : x.path) != null ? _a : "");
+      }) : [];
+      return { error: typeof (d == null ? void 0 : d.error) === "string" ? d.error : void 0, paths };
+    } catch {
+      return { error: void 0, paths: [] };
+    }
+  }
   async function postErrorBatch(body, { keepalive = false } = {}) {
     if (!state.config) return { ok: false, status: 0 };
     try {
@@ -312,8 +337,9 @@
         body: JSON.stringify(body)
       });
       debugLog("error batch", res.status);
-      const retryAfterMs = res.status === 429 ? await readRetryAfterMs(res) : void 0;
-      return { ok: res.ok, status: res.status, retryAfterMs };
+      if (res.status === 429) return { ok: false, status: 429, retryAfterMs: await readRetryAfterMs(res) };
+      if (res.status === 400) return { ok: false, status: 400, rejection: await readRejection(res) };
+      return { ok: res.ok, status: res.status };
     } catch (e) {
       debugLog("error batch send failed", e);
       return { ok: false, status: 0 };
@@ -528,61 +554,80 @@
     message: 5e3,
     rawStackTrace: 5e4,
     exceptionClass: 500,
+    fingerprint: 64,
     frames: 200,
     frameText: 500,
+    framePackage: 200,
+    frameAddress: 50,
     breadcrumbs: 100,
     breadcrumbMessage: 1e3,
     breadcrumbCategory: 100,
     tagValue: 200,
     appVersion: 50,
     buildNumber: 50,
+    unityVersion: 50,
     userId: 255,
     osVersion: 50,
     deviceModel: 100,
+    manufacturer: 100,
+    cpuArchitecture: 50,
+    networkCarrier: 100,
+    networkEffectiveType: 50,
     sceneName: 100,
     gameMode: 50,
     levelId: 100,
     networkUrl: 2e3,
-    networkMethod: 10,
-    networkEffectiveType: 50
+    networkMethod: 10
   });
   var OCCURRENCES_TAG = "mf_occurrences";
   var REPEAT_TAG = "mf_repeat";
-  var BREADCRUMB_TYPES = /* @__PURE__ */ new Set(["navigation", "network", "user", "debug", "error"]);
-  var LEVELS = /* @__PURE__ */ new Set(["debug", "info", "warning", "error", "fatal"]);
+  var ERROR_TYPES = /* @__PURE__ */ new Set(["crash", "exception", "network", "custom"]);
+  var ERROR_CATEGORIES = /* @__PURE__ */ new Set(["native", "managed", "handled", "unhandled"]);
   var ERROR_LEVELS = /* @__PURE__ */ new Set(["fatal", "error", "warning", "info"]);
+  var BREADCRUMB_TYPES = /* @__PURE__ */ new Set(["navigation", "network", "user", "debug", "error"]);
+  var BREADCRUMB_LEVELS = /* @__PURE__ */ new Set(["debug", "info", "warning", "error", "fatal"]);
+  var NETWORK_TYPES = /* @__PURE__ */ new Set(["wifi", "cellular", "ethernet", "none"]);
   function oneOf(value, allowed, fallback) {
     return allowed.has(value) ? value : fallback;
   }
   function isRecord(v) {
     return v !== null && typeof v === "object" && !Array.isArray(v);
   }
-  function clip(value, max) {
-    return typeof value === "string" ? value.slice(0, max) : value;
+  function str(value, max) {
+    return value === void 0 || value === null ? void 0 : String(value).slice(0, max);
   }
   function uint(value) {
     return Number.isInteger(value) && value >= 0 ? value : void 0;
+  }
+  function int(value) {
+    const n = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+    return Number.isInteger(n) ? n : void 0;
+  }
+  function nonNegative(value) {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : void 0;
   }
   function compact(obj) {
     return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== void 0));
   }
   function frame(f) {
     return compact({
-      ...f,
-      function: clip(f.function, LIMITS.frameText),
-      filename: clip(f.filename, LIMITS.frameText),
-      module: clip(f.module, LIMITS.frameText),
+      module: str(f.module, LIMITS.frameText),
+      function: str(f.function, LIMITS.frameText),
+      filename: str(f.filename, LIMITS.frameText),
       lineno: uint(f.lineno),
-      colno: uint(f.colno)
+      colno: uint(f.colno),
+      instructionAddress: str(f.instructionAddress, LIMITS.frameAddress),
+      symbolAddress: str(f.symbolAddress, LIMITS.frameAddress),
+      inApp: typeof f.inApp === "boolean" ? f.inApp : void 0,
+      package: str(f.package, LIMITS.framePackage)
     });
   }
   function breadcrumb(b) {
     return compact({
-      ...b,
       type: oneOf(b.type, BREADCRUMB_TYPES, "user"),
-      level: oneOf(b.level, LEVELS, "info"),
-      message: b.message === void 0 ? void 0 : String(b.message).slice(0, LIMITS.breadcrumbMessage),
-      category: b.category === void 0 ? void 0 : String(b.category).slice(0, LIMITS.breadcrumbCategory),
+      level: oneOf(b.level, BREADCRUMB_LEVELS, "info"),
+      message: str(b.message, LIMITS.breadcrumbMessage),
+      category: str(b.category, LIMITS.breadcrumbCategory),
       data: isRecord(b.data) ? b.data : void 0,
       timestamp: Math.floor(Number(b.timestamp) || 0)
     });
@@ -591,39 +636,63 @@
     return Object.fromEntries(Object.entries(t != null ? t : {}).map(([k, v]) => [k, String(v).slice(0, LIMITS.tagValue)]));
   }
   function device(d) {
-    return compact({ ...d, osVersion: clip(d.osVersion, LIMITS.osVersion), deviceModel: clip(d.deviceModel, LIMITS.deviceModel) });
+    var _a, _b;
+    return compact({
+      ...d,
+      osVersion: (_a = str(d.osVersion, LIMITS.osVersion)) != null ? _a : "unknown",
+      deviceModel: (_b = str(d.deviceModel, LIMITS.deviceModel)) != null ? _b : "unknown",
+      manufacturer: str(d.manufacturer, LIMITS.manufacturer),
+      cpuArchitecture: str(d.cpuArchitecture, LIMITS.cpuArchitecture)
+    });
+  }
+  function network(n) {
+    return compact({
+      type: NETWORK_TYPES.has(n.type) ? n.type : void 0,
+      carrier: str(n.carrier, LIMITS.networkCarrier),
+      effectiveType: str(n.effectiveType, LIMITS.networkEffectiveType)
+    });
   }
   function gameState(g) {
     return compact({
-      ...g,
-      sceneName: clip(g.sceneName, LIMITS.sceneName),
-      gameMode: clip(g.gameMode, LIMITS.gameMode),
-      levelId: clip(g.levelId, LIMITS.levelId),
+      sceneName: str(g.sceneName, LIMITS.sceneName),
+      gameMode: str(g.gameMode, LIMITS.gameMode),
+      levelId: str(g.levelId, LIMITS.levelId),
       customData: isRecord(g.customData) ? g.customData : void 0
     });
   }
   function networkRequest(n) {
     var _a, _b;
-    return compact({ ...n, url: clip(String((_a = n.url) != null ? _a : ""), LIMITS.networkUrl), method: clip(String((_b = n.method) != null ? _b : "GET"), LIMITS.networkMethod) });
+    return compact({
+      ...n,
+      url: (_a = str(n.url, LIMITS.networkUrl)) != null ? _a : "",
+      method: (_b = str(n.method, LIMITS.networkMethod)) != null ? _b : "GET",
+      statusCode: int(n.statusCode),
+      durationMs: nonNegative(n.durationMs)
+    });
   }
   function clipPayload(p) {
     var _a;
     return compact({
       ...p,
+      errorType: oneOf(p.errorType, ERROR_TYPES, "custom"),
+      errorCategory: oneOf(p.errorCategory, ERROR_CATEGORIES, "handled"),
       errorLevel: oneOf(p.errorLevel, ERROR_LEVELS, "error"),
-      message: String((_a = p.message) != null ? _a : "").slice(0, LIMITS.message),
-      rawStackTrace: clip(p.rawStackTrace, LIMITS.rawStackTrace),
-      exceptionClass: clip(p.exceptionClass, LIMITS.exceptionClass),
+      message: (_a = str(p.message, LIMITS.message)) != null ? _a : "",
+      rawStackTrace: str(p.rawStackTrace, LIMITS.rawStackTrace),
+      exceptionClass: str(p.exceptionClass, LIMITS.exceptionClass),
+      fingerprint: str(p.fingerprint, LIMITS.fingerprint),
       frames: Array.isArray(p.frames) ? p.frames.slice(0, LIMITS.frames).map(frame) : void 0,
       breadcrumbs: Array.isArray(p.breadcrumbs) ? p.breadcrumbs.slice(-LIMITS.breadcrumbs).map(breadcrumb) : void 0,
       tags: p.tags ? tags(p.tags) : void 0,
-      appVersion: clip(p.appVersion, LIMITS.appVersion),
-      buildNumber: clip(p.buildNumber, LIMITS.buildNumber),
-      userId: clip(p.userId, LIMITS.userId),
+      appVersion: str(p.appVersion, LIMITS.appVersion),
+      buildNumber: str(p.buildNumber, LIMITS.buildNumber),
+      unityVersion: str(p.unityVersion, LIMITS.unityVersion),
+      userId: str(p.userId, LIMITS.userId),
       device: p.device ? device(p.device) : void 0,
       gameState: p.gameState ? gameState(p.gameState) : void 0,
-      network: p.network ? compact({ ...p.network, effectiveType: clip(p.network.effectiveType, LIMITS.networkEffectiveType) }) : void 0,
-      networkRequest: p.networkRequest ? networkRequest(p.networkRequest) : void 0
+      network: p.network ? network(p.network) : void 0,
+      networkRequest: p.networkRequest ? networkRequest(p.networkRequest) : void 0,
+      timestamp: typeof p.timestamp === "number" && Number.isFinite(p.timestamp) ? Math.floor(p.timestamp) : void 0
     });
   }
   function toBatchItem(entry) {
@@ -662,21 +731,21 @@
     const size = jsonBytes(item);
     return size <= limit ? { item, size } : null;
   }
-  function planBatch(queue2, { keepalive }) {
+  function planBatch(queue2, { keepalive, budget }) {
     var _a;
-    const budget = keepalive ? KEEPALIVE_BUDGET_BYTES : MAX_BATCH_BYTES;
-    const limit = budget - ENVELOPE_OVERHEAD_BYTES;
+    const ceiling = keepalive ? KEEPALIVE_BUDGET_BYTES : MAX_BATCH_BYTES;
+    const allowance = Math.min(budget != null ? budget : ceiling, ceiling);
     const plan = { game: void 0, entries: [], items: [], bytes: ENVELOPE_OVERHEAD_BYTES, consumed: 0, unsendable: [] };
     for (const entry of queue2) {
       const game = (_a = entry.payload) == null ? void 0 : _a.game;
       if (plan.entries.length && (plan.entries.length >= MAX_BATCH || game !== plan.game || entry.solo || plan.entries[0].solo)) break;
-      const fitted = fit(sized(entry), limit);
+      const fitted = fit(sized(entry), ceiling - ENVELOPE_OVERHEAD_BYTES);
       if (!fitted) {
         plan.unsendable.push(entry);
         plan.consumed += 1;
         continue;
       }
-      if (plan.entries.length && plan.bytes + fitted.size > budget) break;
+      if (plan.bytes + fitted.size > allowance) break;
       plan.game = game;
       plan.entries.push(entry);
       plan.items.push(fitted.item);
@@ -699,8 +768,22 @@
   var BASE_BACKOFF_MS = 5e3;
   var MAX_BACKOFF_MS = 5 * 60 * 1e3;
   var EMPTY_STATS = Object.freeze({ sent: 0, dropped: 0, suppressed: 0, rejected: 0 });
+  var REPORT_COUNT_KEY = "mf_error_reports";
+  function loadReportCount(sessionId) {
+    var _a;
+    try {
+      const saved = JSON.parse((_a = readStored(REPORT_COUNT_KEY)) != null ? _a : "null");
+      return saved && saved.sessionId === sessionId && Number.isInteger(saved.count) && saved.count >= 0 ? saved.count : 0;
+    } catch {
+      return 0;
+    }
+  }
   function freshSession(id) {
-    return { id, records: /* @__PURE__ */ new Map(), distinctReported: 0 };
+    return { id, records: /* @__PURE__ */ new Map(), distinctReported: id === null ? 0 : loadReportCount(id) };
+  }
+  function setDistinctReported(count) {
+    session = { ...session, distinctReported: count };
+    if (session.id !== null) writeStored(REPORT_COUNT_KEY, JSON.stringify({ sessionId: session.id, count }));
   }
   var session = freshSession(null);
   var queue = [];
@@ -737,7 +820,7 @@
       const rec = session.records.get(e.fingerprint);
       if (!e.repeat && rec && rec.queuedId === e.id) {
         session.records.delete(e.fingerprint);
-        session = { ...session, distinctReported: Math.max(0, session.distinctReported - 1) };
+        setDistinctReported(Math.max(0, session.distinctReported - 1));
       }
     }
   }
@@ -796,7 +879,7 @@
       return false;
     }
     const entry = newEntry(fp, payload, 1, false);
-    session = { ...session, distinctReported: session.distinctReported + 1 };
+    setDistinctReported(session.distinctReported + 1);
     session.records.set(fp, { reported: true, queuedId: entry.id, pending: 0, lastPayload: null, lastReportAt: now });
     enqueue(entry);
     return true;
@@ -807,8 +890,8 @@
       return false;
     }
     if (rec.queuedId && incrementQueued(rec.queuedId)) return true;
-    const { breadcrumbs: _omit, ...withoutBreadcrumbs } = payload;
-    session.records.set(fp, { ...rec, queuedId: null, pending: rec.pending + 1, lastPayload: withoutBreadcrumbs });
+    const { breadcrumbs: _crumbs, rawStackTrace: _raw, ...countPayload } = payload;
+    session.records.set(fp, { ...rec, queuedId: null, pending: rec.pending + 1, lastPayload: countPayload });
     scheduleFlush(FLUSH_INTERVAL_MS);
     return true;
   }
@@ -823,8 +906,8 @@
       return false;
     }
   }
-  function takeBatch(keepalive) {
-    const plan = planBatch(queue, { keepalive });
+  function takeBatch(keepalive, budget) {
+    const plan = planBatch(queue, { keepalive, budget });
     queue = queue.slice(plan.consumed);
     discard(plan.unsendable);
     return plan;
@@ -843,11 +926,30 @@
   function isRetryable(status) {
     return status === 0 || status === 408 || status === 425 || status >= 500;
   }
+  function rejectedIndices(rejection, count) {
+    var _a;
+    const paths = (_a = rejection == null ? void 0 : rejection.paths) != null ? _a : [];
+    if (!paths.length) return null;
+    const indices = /* @__PURE__ */ new Set();
+    for (const path of paths) {
+      const m = /^errors\.(\d+)(\.|$)/.exec(path);
+      if (!m || Number(m[1]) >= count) return null;
+      indices.add(Number(m[1]));
+    }
+    return indices;
+  }
+  function handleRejection(entries, rejection) {
+    const bad = rejectedIndices(rejection, entries.length);
+    const survivors = bad ? entries.filter((_e, i) => !bad.has(i)) : [];
+    bump("rejected", entries.length - survivors.length);
+    debugLog("error batch rejected (400)", rejection == null ? void 0 : rejection.error, rejection == null ? void 0 : rejection.paths);
+    if (survivors.length) requeue(survivors, { countAttempt: true });
+    return "rejected";
+  }
   async function sendBatch(plan, teardown) {
     var _a;
     const { entries, items } = plan;
-    const keepalive = teardown || plan.bytes <= KEEPALIVE_BUDGET_BYTES;
-    const res = await postErrorBatch({ type: "error_batch", game: plan.game, errors: items }, { keepalive });
+    const res = await postErrorBatch({ type: "error_batch", game: plan.game, errors: items }, { keepalive: teardown });
     if (res.ok) {
       failureStreak = 0;
       bump("sent", items.length);
@@ -864,7 +966,8 @@
       requeue(entries, { countAttempt: true });
       return "failed";
     }
-    if ((res.status === 400 || res.status === 413) && entries.length > 1) {
+    if (res.status === 400) return handleRejection(entries, res.rejection);
+    if (res.status === 413 && entries.length > 1) {
       requeue(entries, { solo: true });
       return "split";
     }
@@ -884,12 +987,18 @@
   async function sendForTeardown() {
     if (isRateLimited()) return false;
     const plans = [];
+    let remaining = KEEPALIVE_BUDGET_BYTES;
     while (queue.length) {
-      const plan = takeBatch(true);
-      if (plan.items.length) plans.push(plan);
+      const plan = takeBatch(true, remaining);
+      if (!plan.items.length) {
+        if (!plan.consumed) break;
+        continue;
+      }
+      plans.push(plan);
+      remaining -= plan.bytes;
     }
     const outcomes = await Promise.all(plans.map((p) => sendBatch(p, true)));
-    return outcomes.every((o) => o === "sent" || o === "rejected");
+    return queue.length === 0 && outcomes.every((o) => o === "sent" || o === "rejected");
   }
   function afterFlush() {
     if (queue.length || hasPendingRepeats()) scheduleFlush(FLUSH_INTERVAL_MS);
