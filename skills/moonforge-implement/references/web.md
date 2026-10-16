@@ -31,8 +31,8 @@ Read `<GAME_ID>` from `.moonforge.json` (`gameId`) or ask the user.
 `networkErrorMinStatus` (default `500`) is the lowest response status the
 `trackNetworkErrors` fetch interceptor reports — leave it at 500 unless the
 user explicitly wants 4xx answers from their own API reported.
-`maxErrorReportsPerSession` (default `100`) caps distinct error reports per
-session. Errors are deduplicated and batched — see `sdk-contract.md`
+`maxErrorReportsPerSession` (default `100`, max `1000`) caps distinct error
+reports per session (persisted, so a reload does not reset it). Errors are deduplicated and batched — see `sdk-contract.md`
 § Error reporting.
 `session_start`/`session_end`, unhandled-error capture, `first_open` (once per
 device, on distinct-id creation), and `app_update` (once, when `appVersion`

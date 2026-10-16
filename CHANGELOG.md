@@ -19,21 +19,26 @@ the git tag are kept in lockstep.
     collector's `apiEndpoint` are still never intercepted.
   - Every error was its own `POST /api/errors`. Reports are now queued and
     sent to `POST /api/errors/batch` every 5s or at 20 queued (≤ 20 per
-    request), and on `pagehide` / tab hide with `fetch` keepalive, each
-    request kept under the browser's 64KB keepalive budget.
+    request), and on `pagehide` / tab hide with `fetch` keepalive within one
+    shared 60KB budget (the browser's ~64KB limit is on the total in flight);
+    ordinary flushes do not use keepalive.
   - Repeats were not merged. Each error gets a client-side fingerprint (type +
     message + top frame; network: method + URL path without query + status).
     The first occurrence per session carries breadcrumbs; repeats add to a
     count, sent as `tags.mf_occurrences` (count-only reports carry
     `mf_repeat: "true"` and no breadcrumbs, at most once per 60s per
-    fingerprint). At most `maxErrorReportsPerSession` (default `100`)
+    fingerprint). At most `maxErrorReportsPerSession` (default `100`, max
+    `1000`; the count is persisted per session, so a reload does not reset it)
     distinct reports per session; past it, counts are kept locally only.
   - The 429 `retryAfterMs` was ignored. All error sending now pauses until
     it elapses (default 60s). The queue is bounded at 200, dropping the
     oldest, with drops counted.
-- Batch items are clipped to the collector's schema limits, and a batch the
-  collector rejects with 400/413 is resent one report at a time, so one bad
-  report cannot discard the rest. Transport failures (network, 5xx, 408)
+- Batch items are coerced to the collector's schema (string fields such as a
+  numeric `levelId` or user id are stringified and clipped, invalid enum
+  values such as an unknown `errorCategory` fall back to the default). On a
+  400 naming specific reports, only those are dropped and the rest resent
+  once; a request-wide 400 (unknown game) drops the batch without resending;
+  a 413 is resent one report at a time. Transport failures (network, 5xx, 408)
   retry with exponential backoff, up to 6 attempts per report.
 - Where `localStorage` is blocked (private mode, sandboxed iframes) the
   distinct id and session id now fall back to in-memory values instead of
