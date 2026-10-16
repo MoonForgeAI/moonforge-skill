@@ -29,7 +29,9 @@ results that are assigned or passed onward).
 ## 2. Remove (per-file diffs, approval each)
 
 - Delete the SDK: the copied module folder (e.g. `src/moonforge/` containing
-  `core.js`, `context.js`, `analytics.js`, `errors.js`, `index.js`) or the
+  `core.js`, `context.js`, `analytics.js`, `errors.js`, `index.js`, and since
+  1.8.0 `error-queue.js`, `error-batch.js`, `error-fingerprint.js`,
+  `error-payload.js`) or the
   single `moonforge.global.js` / `js/moonforge.js`.
 - Entry HTML: remove the `<script src=".../moonforge...js"></script>` tag and any
   inline `<script>MoonForgeAnalytics.init({...})</script>` block.

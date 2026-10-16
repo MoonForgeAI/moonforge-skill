@@ -11,8 +11,11 @@ that is not in the project leaves the game broken and the job half done.
 
 ## 1. Install the SDK into the project
 - **Bundler / `<script type="module">` game:** copy the folder `assets/moonforge-sdk/`
-  into the project source (e.g. `src/moonforge/`). Keep the module files
-  (`core.js`, `context.js`, `analytics.js`, `errors.js`, `index.js`).
+  into the project source (e.g. `src/moonforge/`). Keep **all** the module files
+  (`core.js`, `context.js`, `analytics.js`, `errors.js`, `error-queue.js`,
+  `error-batch.js`, `error-fingerprint.js`, `error-payload.js`, `index.js`) — they import each
+  other, so a partial copy fails to load. When upgrading an existing copy,
+  replace the whole folder.
 - **Legacy `<script>` game (no bundler/modules):** copy only
   `assets/moonforge-sdk/moonforge.global.js` into the project (e.g. `js/moonforge.js`)
   and load it with `<script src="js/moonforge.js"></script>` before game code.
@@ -24,7 +27,13 @@ that is not in the project leaves the game broken and the job half done.
 - `<script>` game: after the SDK script,
   `<script>MoonForgeAnalytics.init({ gameId: '<GAME_ID>' });</script>`
 Read `<GAME_ID>` from `.moonforge.json` (`gameId`) or ask the user.
-`init` accepts `{ gameId, apiEndpoint?, debug?, autoTrackSession?, trackNetworkErrors?, appVersion?, buildNumber? }`.
+`init` accepts `{ gameId, apiEndpoint?, debug?, autoTrackSession?, trackNetworkErrors?, networkErrorMinStatus?, maxErrorReportsPerSession?, appVersion?, buildNumber? }`.
+`networkErrorMinStatus` (default `500`) is the lowest response status the
+`trackNetworkErrors` fetch interceptor reports — leave it at 500 unless the
+user explicitly wants 4xx answers from their own API reported.
+`maxErrorReportsPerSession` (default `100`) caps distinct error reports per
+session. Errors are deduplicated and batched — see `sdk-contract.md`
+§ Error reporting.
 `session_start`/`session_end`, unhandled-error capture, `first_open` (once per
 device, on distinct-id creation), and `app_update` (once, when `appVersion`
 differs from the last one this device saw) all start automatically — no
@@ -68,7 +77,8 @@ Errors — `MoonForgeErrorTracker`:
 `setUser(userId, tags)`, `clearUser()`, `setGameState({sceneName,gameMode,levelId})`,
 `setGameStateData(k, v)`, `addBreadcrumb(msg, {type,level,category,data})`,
 `captureException(err, {level,tags})`, `captureMessage(msg, {level,tags})`,
-`captureNetworkError(url, {method,statusCode,errorMessage,durationMs,tags})`.
+`captureNetworkError(url, {method,statusCode,errorMessage,durationMs,tags})`,
+`flush()` (send queued reports now), `getStats()` (queue diagnostics).
 
 Place calls at the right site per framework (e.g. Phaser `Scene.create()` for
 `trackScreenView(this.scene.key)`; level-complete handlers for
