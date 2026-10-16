@@ -3,11 +3,10 @@ import * as core from './core.js';
 import * as analytics from './analytics.js';
 import * as errors from './errors.js';
 import { setGameState, setGameStateData, getGameState, clearGameState } from './context.js';
+import { installErrorQueueLifecycle } from './error-queue.js';
 
 let sessionStartedAt = 0;
 let autoInstalled = false;
-
-const NETWORK_ERROR_STATUS_THRESHOLD = 400;
 
 /**
  * Extracts a usable URL string from a fetch() first argument, which may be
@@ -82,7 +81,16 @@ function installAutoCapture() {
   });
 }
 
-function installFetchInterceptor(threshold = NETWORK_ERROR_STATUS_THRESHOLD) {
+/** A request the game cancelled itself is not a failure worth reporting. */
+function isAbort(e) { return e?.name === 'AbortError'; }
+
+/**
+ * Wraps fetch to report the game's own failed requests: responses with
+ * status >= networkErrorMinStatus (default 500 - 4xx are usually expected
+ * application answers, not faults) and fetches that throw (other than
+ * aborts). Calls to the collector's apiEndpoint are never intercepted.
+ */
+function installFetchInterceptor() {
   if (typeof globalThis.fetch !== 'function' || globalThis.__mfFetchWrapped) return;
   globalThis.__mfFetchWrapped = true;
   const orig = globalThis.fetch.bind(globalThis);
@@ -95,9 +103,13 @@ function installFetchInterceptor(threshold = NETWORK_ERROR_STATUS_THRESHOLD) {
     if (!url || (cfg && url.startsWith(cfg.apiEndpoint))) return orig(...args);
     try {
       const res = await orig(...args);
-      if (res.status >= threshold) errors.captureNetworkError(url, { method, statusCode: res.status, durationMs: Date.now() - start });
+      const minStatus = core.getConfig()?.networkErrorMinStatus ?? core.DEFAULT_NETWORK_ERROR_MIN_STATUS;
+      if (res.status >= minStatus) errors.captureNetworkError(url, { method, statusCode: res.status, durationMs: Date.now() - start });
       return res;
-    } catch (e) { errors.captureNetworkError(url, { method, errorMessage: String(e), durationMs: Date.now() - start }); throw e; }
+    } catch (e) {
+      if (!isAbort(e)) errors.captureNetworkError(url, { method, errorMessage: String(e), durationMs: Date.now() - start });
+      throw e;
+    }
   };
 }
 
@@ -114,6 +126,7 @@ function init(options = {}) {
   if (firstOpen) analytics.trackFirstOpen();
   if (previousVersion) analytics.trackAppUpdate(previousVersion);
   installAutoCapture();
+  installErrorQueueLifecycle();
   if (cfg.autoTrackSession) startSession();
   if (cfg.trackNetworkErrors) installFetchInterceptor();
   return cfg;
@@ -164,6 +177,7 @@ export const MoonForgeErrorTracker = {
   captureMessage: errors.captureMessage,
   captureNetworkError: errors.captureNetworkError,
   flush: errors.flush,
+  getStats: errors.getStats,
 };
 
 export const ErrorLevel = core.ErrorLevel;

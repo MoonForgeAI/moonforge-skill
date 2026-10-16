@@ -6,6 +6,10 @@ const ALIASED_KEY = 'mf_aliased';
 const LAST_VERSION_KEY = 'mf_last_version';
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_ENDPOINT = 'https://collector.moonforge.co';
+/** Fetch-interceptor default: only server failures (5xx) and thrown fetches are reported. */
+export const DEFAULT_NETWORK_ERROR_MIN_STATUS = 500;
+/** Default per-session budget of distinct error reports (see error-queue.js). */
+export const DEFAULT_MAX_ERROR_REPORTS_PER_SESSION = 100;
 
 export const ErrorLevel = Object.freeze({ Info: 'info', Warning: 'warning', Error: 'error', Fatal: 'fatal' });
 export const BreadcrumbType = Object.freeze({ Navigation: 'navigation', Network: 'network', User: 'user', Debug: 'debug', Error: 'error' });
@@ -13,6 +17,8 @@ export const BreadcrumbLevel = Object.freeze({ Debug: 'debug', Info: 'info', War
 
 const state = { config: null, cacheToken: null, userProps: {} };
 
+/** RFC 4122 v4 uuid (crypto.randomUUID when available). */
+export function newUuid() { return uuid(); }
 function uuid() {
   const c = globalThis.crypto;
   if (c && typeof c.randomUUID === 'function') return c.randomUUID();
@@ -21,11 +27,43 @@ function uuid() {
     return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
 }
-function lget(k) { try { return globalThis.localStorage?.getItem(k) ?? null; } catch { return null; } }
-function lset(k, v) { try { globalThis.localStorage?.setItem(k, v); } catch { /* ignore */ } }
+/**
+ * In-page fallback for when localStorage is missing or refuses access (Safari
+ * private mode, sandboxed iframes, blocked storage). Without it every read
+ * misses, so each call would mint a fresh distinct/session id - breaking
+ * identity and the error queue's per-session dedupe and cap. Only written when
+ * a localStorage write fails, so normal persistence is unaffected.
+ */
+const memoryStore = new Map();
+function lget(k) {
+  let v = null;
+  try { v = globalThis.localStorage?.getItem(k) ?? null; } catch { v = null; }
+  return v ?? memoryStore.get(k) ?? null;
+}
+function lset(k, v) {
+  try {
+    if (!globalThis.localStorage) throw new Error('localStorage unavailable');
+    globalThis.localStorage.setItem(k, v);
+    memoryStore.delete(k);
+  } catch { memoryStore.set(k, v); }
+}
 
 /** Unix timestamp in SECONDS — the collector's analytics pipeline rejects milliseconds. */
 export function unixSeconds() { return Math.floor(Date.now() / 1000); }
+
+/**
+ * Returns `value` when `isValid(value)`, otherwise `fallback`. An explicitly
+ * supplied but invalid value is warned about rather than silently ignored.
+ */
+function validOption(options, name, isValid, fallback) {
+  const value = options[name];
+  if (value === undefined) return fallback;
+  if (isValid(value)) return value;
+  console.warn(`[MoonForge] init: invalid ${name} (${String(value)}); using ${fallback}.`);
+  return fallback;
+}
+const isStatusFloor = (v) => Number.isInteger(v) && v >= 100 && v <= 600;
+const isNonNegativeInt = (v) => Number.isInteger(v) && v >= 0;
 
 export function init(options = {}) {
   if (!options.gameId) { console.warn('[MoonForge] init: gameId is required; SDK disabled.'); state.config = null; return undefined; }
@@ -41,6 +79,11 @@ export function init(options = {}) {
     // when not supplied, rather than lying with a placeholder.
     appVersion: options.appVersion,
     buildNumber: options.buildNumber ?? '1',
+    // Lowest HTTP status the fetch interceptor reports (600 = never report a
+    // response; thrown fetches are still reported).
+    networkErrorMinStatus: validOption(options, 'networkErrorMinStatus', isStatusFloor, DEFAULT_NETWORK_ERROR_MIN_STATUS),
+    // Distinct error reports sent per session; past it only counts are kept.
+    maxErrorReportsPerSession: validOption(options, 'maxErrorReportsPerSession', isNonNegativeInt, DEFAULT_MAX_ERROR_REPORTS_PER_SESSION),
   };
   return state.config;
 }
@@ -262,13 +305,33 @@ async function deliver(payload, { beacon = false } = {}) {
   } catch (e) { debugLog('send failed', e); return false; }
 }
 
-export async function postError(body) {
-  if (!state.config) return false;
+/**
+ * Reads `retryAfterMs` from a 429 body ({ error, reason, retryAfterMs }).
+ * @returns {Promise<number|undefined>} undefined when absent or malformed.
+ */
+async function readRetryAfterMs(res) {
   try {
-    const res = await fetch(`${state.config.apiEndpoint}/api/errors`, {
-      method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    const d = await res.json();
+    const ms = d?.retryAfterMs;
+    return typeof ms === 'number' && Number.isFinite(ms) && ms > 0 ? ms : undefined;
+  } catch { return undefined; }
+}
+
+/**
+ * POSTs one `{ type: 'error_batch', game, errors }` body to /api/errors/batch.
+ * Never throws: transport failures resolve to `{ ok: false, status: 0 }`.
+ * @param {object} body
+ * @param {{ keepalive?: boolean }} [opts] keepalive for page-teardown sends
+ * @returns {Promise<{ ok: boolean, status: number, retryAfterMs?: number }>}
+ */
+export async function postErrorBatch(body, { keepalive = false } = {}) {
+  if (!state.config) return { ok: false, status: 0 };
+  try {
+    const res = await fetch(`${state.config.apiEndpoint}/api/errors/batch`, {
+      method: 'POST', keepalive, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
-    debugLog('error', res.status);
-    return res.ok;
-  } catch (e) { debugLog('error send failed', e); return false; }
+    debugLog('error batch', res.status);
+    const retryAfterMs = res.status === 429 ? await readRetryAfterMs(res) : undefined;
+    return { ok: res.ok, status: res.status, retryAfterMs };
+  } catch (e) { debugLog('error batch send failed', e); return { ok: false, status: 0 }; }
 }

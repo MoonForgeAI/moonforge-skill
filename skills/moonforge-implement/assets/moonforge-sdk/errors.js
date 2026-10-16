@@ -1,6 +1,9 @@
-// MoonForge Web SDK — error pipeline (POST /api/errors).
-import { isReady, postError, getConfig, getSessionId, unixSeconds, BreadcrumbType, BreadcrumbLevel, ErrorLevel } from './core.js';
+// MoonForge Web SDK — error capture API. Reports are deduplicated, capped and
+// batched by error-queue.js, which sends them to POST /api/errors/batch.
+import { isReady, getConfig, getSessionId, unixSeconds, BreadcrumbType, BreadcrumbLevel, ErrorLevel } from './core.js';
 import { getDeviceContext, getNetworkContext, getGameState } from './context.js';
+import { exceptionFingerprint, messageFingerprint, networkFingerprint } from './error-fingerprint.js';
+import { flushErrors, getErrorQueueStats, recordError } from './error-queue.js';
 
 const MAX_BREADCRUMBS = 50;
 const store = { breadcrumbs: [], user: null };
@@ -48,35 +51,50 @@ function baseEnvelope(errorType, errorCategory, errorLevel, extraTags) {
   return payload;
 }
 
+/**
+ * Hands one report to the queue. Capture calls resolve to true when the
+ * occurrence will reach the collector (as a report or a repeat count), false
+ * when it was only counted locally (session cap) or could not be built.
+ */
+function submit(build) {
+  try {
+    const { fingerprint, payload } = build();
+    return Promise.resolve(recordError(fingerprint, payload));
+  } catch {
+    return Promise.resolve(false);
+  }
+}
+
 export function captureException(error, { level = ErrorLevel.Error, tags = {}, category = 'handled' } = {}) {
   if (!ensure()) return undefined;
-  try {
+  return submit(() => {
     const e = error instanceof Error ? error : new Error(String(error));
-    const payload = { ...baseEnvelope('exception', category, level, tags), message: String(e.message).slice(0, 5000), exceptionClass: e.name || 'Error', frames: parseFrames(e.stack), rawStackTrace: e.stack ? String(e.stack).slice(0, 50000) : undefined };
-    return postError({ type: 'error', payload });
-  } catch {
-    return false;
-  }
+    const message = String(e.message).slice(0, 5000);
+    const exceptionClass = e.name || 'Error';
+    const frames = parseFrames(e.stack);
+    const payload = { ...baseEnvelope('exception', category, level, tags), message, exceptionClass, frames, rawStackTrace: e.stack ? String(e.stack).slice(0, 50000) : undefined };
+    return { fingerprint: exceptionFingerprint(exceptionClass, message, frames), payload };
+  });
 }
 export function captureMessage(message, { level = ErrorLevel.Info, tags = {} } = {}) {
   if (!ensure()) return undefined;
-  try {
-    return postError({ type: 'error', payload: { ...baseEnvelope('custom', 'handled', level, tags), message: String(message).slice(0, 5000) } });
-  } catch {
-    return false;
-  }
+  return submit(() => {
+    const text = String(message).slice(0, 5000);
+    return { fingerprint: messageFingerprint(level, text), payload: { ...baseEnvelope('custom', 'handled', level, tags), message: text } };
+  });
 }
 export function captureNetworkError(url, { method = 'GET', statusCode, errorMessage, durationMs, tags = {} } = {}) {
   if (!ensure()) return undefined;
-  try {
+  return submit(() => {
     addBreadcrumb(`${method} ${url} -> ${statusCode ?? 'failed'}`, { type: BreadcrumbType.Network, level: BreadcrumbLevel.Error });
     const payload = { ...baseEnvelope('network', 'handled', ErrorLevel.Error, tags), message: String(errorMessage ?? `${method} ${url} failed`).slice(0, 5000), networkRequest: { url: String(url).slice(0, 2000), method, statusCode, durationMs } };
-    return postError({ type: 'error', payload });
-  } catch {
-    return false;
-  }
+    return { fingerprint: networkFingerprint(method, url, statusCode), payload };
+  });
 }
-export function flush() { return Promise.resolve(true); }
+/** Sends everything queued now, including held repeat counts. Resolves true when the queue is empty. */
+export function flush() { return flushErrors({ drain: true }); }
+/** Queue diagnostics: { sent, dropped, suppressed, rejected, queued, distinctReported, paused, pausedUntil }. */
+export function getStats() { return getErrorQueueStats(); }
 
 // Internal: used by index.js auto-capture.
 export function _captureUnhandled(error) { return captureException(error, { category: 'unhandled', level: ErrorLevel.Error }); }

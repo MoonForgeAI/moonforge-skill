@@ -8,10 +8,15 @@
   var LAST_VERSION_KEY = "mf_last_version";
   var SESSION_TIMEOUT_MS = 30 * 60 * 1e3;
   var DEFAULT_ENDPOINT = "https://collector.moonforge.co";
+  var DEFAULT_NETWORK_ERROR_MIN_STATUS = 500;
+  var DEFAULT_MAX_ERROR_REPORTS_PER_SESSION = 100;
   var ErrorLevel = Object.freeze({ Info: "info", Warning: "warning", Error: "error", Fatal: "fatal" });
   var BreadcrumbType = Object.freeze({ Navigation: "navigation", Network: "network", User: "user", Debug: "debug", Error: "error" });
   var BreadcrumbLevel = Object.freeze({ Debug: "debug", Info: "info", Warning: "warning", Error: "error", Fatal: "fatal" });
   var state = { config: null, cacheToken: null, userProps: {} };
+  function newUuid() {
+    return uuid();
+  }
   function uuid() {
     const c = globalThis.crypto;
     if (c && typeof c.randomUUID === "function") return c.randomUUID();
@@ -20,24 +25,38 @@
       return (ch === "x" ? r : r & 3 | 8).toString(16);
     });
   }
+  var memoryStore = /* @__PURE__ */ new Map();
   function lget(k) {
-    var _a, _b;
+    var _a, _b, _c;
+    let v = null;
     try {
-      return (_b = (_a = globalThis.localStorage) == null ? void 0 : _a.getItem(k)) != null ? _b : null;
+      v = (_b = (_a = globalThis.localStorage) == null ? void 0 : _a.getItem(k)) != null ? _b : null;
     } catch {
-      return null;
+      v = null;
     }
+    return (_c = v != null ? v : memoryStore.get(k)) != null ? _c : null;
   }
   function lset(k, v) {
-    var _a;
     try {
-      (_a = globalThis.localStorage) == null ? void 0 : _a.setItem(k, v);
+      if (!globalThis.localStorage) throw new Error("localStorage unavailable");
+      globalThis.localStorage.setItem(k, v);
+      memoryStore.delete(k);
     } catch {
+      memoryStore.set(k, v);
     }
   }
   function unixSeconds() {
     return Math.floor(Date.now() / 1e3);
   }
+  function validOption(options, name, isValid, fallback) {
+    const value = options[name];
+    if (value === void 0) return fallback;
+    if (isValid(value)) return value;
+    console.warn(`[MoonForge] init: invalid ${name} (${String(value)}); using ${fallback}.`);
+    return fallback;
+  }
+  var isStatusFloor = (v) => Number.isInteger(v) && v >= 100 && v <= 600;
+  var isNonNegativeInt = (v) => Number.isInteger(v) && v >= 0;
   function init(options = {}) {
     var _a, _b, _c, _d, _e;
     if (!options.gameId) {
@@ -58,7 +77,12 @@
       // from a real one in the dashboard. Omitted from the JSON body entirely
       // when not supplied, rather than lying with a placeholder.
       appVersion: options.appVersion,
-      buildNumber: (_e = options.buildNumber) != null ? _e : "1"
+      buildNumber: (_e = options.buildNumber) != null ? _e : "1",
+      // Lowest HTTP status the fetch interceptor reports (600 = never report a
+      // response; thrown fetches are still reported).
+      networkErrorMinStatus: validOption(options, "networkErrorMinStatus", isStatusFloor, DEFAULT_NETWORK_ERROR_MIN_STATUS),
+      // Distinct error reports sent per session; past it only counts are kept.
+      maxErrorReportsPerSession: validOption(options, "maxErrorReportsPerSession", isNonNegativeInt, DEFAULT_MAX_ERROR_REPORTS_PER_SESSION)
     };
     return state.config;
   }
@@ -269,20 +293,30 @@
       return false;
     }
   }
-  async function postError(body) {
-    if (!state.config) return false;
+  async function readRetryAfterMs(res) {
     try {
-      const res = await fetch(`${state.config.apiEndpoint}/api/errors`, {
+      const d = await res.json();
+      const ms = d == null ? void 0 : d.retryAfterMs;
+      return typeof ms === "number" && Number.isFinite(ms) && ms > 0 ? ms : void 0;
+    } catch {
+      return void 0;
+    }
+  }
+  async function postErrorBatch(body, { keepalive = false } = {}) {
+    if (!state.config) return { ok: false, status: 0 };
+    try {
+      const res = await fetch(`${state.config.apiEndpoint}/api/errors/batch`, {
         method: "POST",
-        keepalive: true,
+        keepalive,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
-      debugLog("error", res.status);
-      return res.ok;
+      debugLog("error batch", res.status);
+      const retryAfterMs = res.status === 429 ? await readRetryAfterMs(res) : void 0;
+      return { ok: res.ok, status: res.status, retryAfterMs };
     } catch (e) {
-      debugLog("error send failed", e);
-      return false;
+      debugLog("error batch send failed", e);
+      return { ok: false, status: 0 };
     }
   }
 
@@ -459,6 +493,442 @@
     gs.value = {};
   }
 
+  // skills/moonforge-implement/assets/moonforge-sdk/error-fingerprint.js
+  var MAX_KEY_PART = 300;
+  function part(value) {
+    return String(value != null ? value : "").slice(0, MAX_KEY_PART);
+  }
+  function urlPath(url) {
+    var _a;
+    if (url === void 0 || url === null) return "";
+    const raw = String(url);
+    try {
+      const base = ((_a = globalThis.location) == null ? void 0 : _a.href) || "http://localhost/";
+      const u = new URL(raw, base);
+      return `${u.origin}${u.pathname}`;
+    } catch {
+      return raw.split(/[?#]/)[0];
+    }
+  }
+  function exceptionFingerprint(exceptionClass, message, frames) {
+    var _a, _b, _c, _d;
+    const top = Array.isArray(frames) && frames.length ? frames[0] : null;
+    const where = top ? `${(_a = top.function) != null ? _a : ""}@${(_b = top.filename) != null ? _b : ""}:${(_c = top.lineno) != null ? _c : ""}:${(_d = top.colno) != null ? _d : ""}` : "";
+    return `exception|${part(exceptionClass)}|${part(message)}|${part(where)}`;
+  }
+  function messageFingerprint(level, message) {
+    return `message|${part(level)}|${part(message)}`;
+  }
+  function networkFingerprint(method, url, statusCode) {
+    return `network|${part(String(method != null ? method : "GET").toUpperCase())}|${part(urlPath(url))}|${statusCode != null ? statusCode : "failed"}`;
+  }
+
+  // skills/moonforge-implement/assets/moonforge-sdk/error-payload.js
+  var LIMITS = Object.freeze({
+    message: 5e3,
+    rawStackTrace: 5e4,
+    exceptionClass: 500,
+    frames: 200,
+    frameText: 500,
+    breadcrumbs: 100,
+    breadcrumbMessage: 1e3,
+    breadcrumbCategory: 100,
+    tagValue: 200,
+    appVersion: 50,
+    buildNumber: 50,
+    userId: 255,
+    osVersion: 50,
+    deviceModel: 100,
+    sceneName: 100,
+    gameMode: 50,
+    levelId: 100,
+    networkUrl: 2e3,
+    networkMethod: 10,
+    networkEffectiveType: 50
+  });
+  var OCCURRENCES_TAG = "mf_occurrences";
+  var REPEAT_TAG = "mf_repeat";
+  var BREADCRUMB_TYPES = /* @__PURE__ */ new Set(["navigation", "network", "user", "debug", "error"]);
+  var LEVELS = /* @__PURE__ */ new Set(["debug", "info", "warning", "error", "fatal"]);
+  var ERROR_LEVELS = /* @__PURE__ */ new Set(["fatal", "error", "warning", "info"]);
+  function oneOf(value, allowed, fallback) {
+    return allowed.has(value) ? value : fallback;
+  }
+  function isRecord(v) {
+    return v !== null && typeof v === "object" && !Array.isArray(v);
+  }
+  function clip(value, max) {
+    return typeof value === "string" ? value.slice(0, max) : value;
+  }
+  function uint(value) {
+    return Number.isInteger(value) && value >= 0 ? value : void 0;
+  }
+  function compact(obj) {
+    return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== void 0));
+  }
+  function frame(f) {
+    return compact({
+      ...f,
+      function: clip(f.function, LIMITS.frameText),
+      filename: clip(f.filename, LIMITS.frameText),
+      module: clip(f.module, LIMITS.frameText),
+      lineno: uint(f.lineno),
+      colno: uint(f.colno)
+    });
+  }
+  function breadcrumb(b) {
+    return compact({
+      ...b,
+      type: oneOf(b.type, BREADCRUMB_TYPES, "user"),
+      level: oneOf(b.level, LEVELS, "info"),
+      message: b.message === void 0 ? void 0 : String(b.message).slice(0, LIMITS.breadcrumbMessage),
+      category: b.category === void 0 ? void 0 : String(b.category).slice(0, LIMITS.breadcrumbCategory),
+      data: isRecord(b.data) ? b.data : void 0,
+      timestamp: Math.floor(Number(b.timestamp) || 0)
+    });
+  }
+  function tags(t) {
+    return Object.fromEntries(Object.entries(t != null ? t : {}).map(([k, v]) => [k, String(v).slice(0, LIMITS.tagValue)]));
+  }
+  function device(d) {
+    return compact({ ...d, osVersion: clip(d.osVersion, LIMITS.osVersion), deviceModel: clip(d.deviceModel, LIMITS.deviceModel) });
+  }
+  function gameState(g) {
+    return compact({
+      ...g,
+      sceneName: clip(g.sceneName, LIMITS.sceneName),
+      gameMode: clip(g.gameMode, LIMITS.gameMode),
+      levelId: clip(g.levelId, LIMITS.levelId),
+      customData: isRecord(g.customData) ? g.customData : void 0
+    });
+  }
+  function networkRequest(n) {
+    var _a, _b;
+    return compact({ ...n, url: clip(String((_a = n.url) != null ? _a : ""), LIMITS.networkUrl), method: clip(String((_b = n.method) != null ? _b : "GET"), LIMITS.networkMethod) });
+  }
+  function clipPayload(p) {
+    var _a;
+    return compact({
+      ...p,
+      errorLevel: oneOf(p.errorLevel, ERROR_LEVELS, "error"),
+      message: String((_a = p.message) != null ? _a : "").slice(0, LIMITS.message),
+      rawStackTrace: clip(p.rawStackTrace, LIMITS.rawStackTrace),
+      exceptionClass: clip(p.exceptionClass, LIMITS.exceptionClass),
+      frames: Array.isArray(p.frames) ? p.frames.slice(0, LIMITS.frames).map(frame) : void 0,
+      breadcrumbs: Array.isArray(p.breadcrumbs) ? p.breadcrumbs.slice(-LIMITS.breadcrumbs).map(breadcrumb) : void 0,
+      tags: p.tags ? tags(p.tags) : void 0,
+      appVersion: clip(p.appVersion, LIMITS.appVersion),
+      buildNumber: clip(p.buildNumber, LIMITS.buildNumber),
+      userId: clip(p.userId, LIMITS.userId),
+      device: p.device ? device(p.device) : void 0,
+      gameState: p.gameState ? gameState(p.gameState) : void 0,
+      network: p.network ? compact({ ...p.network, effectiveType: clip(p.network.effectiveType, LIMITS.networkEffectiveType) }) : void 0,
+      networkRequest: p.networkRequest ? networkRequest(p.networkRequest) : void 0
+    });
+  }
+  function toBatchItem(entry) {
+    var _a;
+    const { game: _game, ...rest } = clipPayload(entry.payload);
+    const countTags = { [OCCURRENCES_TAG]: String(entry.count), ...entry.repeat ? { [REPEAT_TAG]: "true" } : {} };
+    return { ...rest, clientErrorId: entry.id, tags: { ...(_a = rest.tags) != null ? _a : {}, ...countTags } };
+  }
+  function slimItem(item) {
+    const { rawStackTrace: _raw, breadcrumbs: _crumbs, ...rest } = item;
+    return { ...rest, frames: Array.isArray(rest.frames) ? rest.frames.slice(0, 20) : void 0 };
+  }
+
+  // skills/moonforge-implement/assets/moonforge-sdk/error-batch.js
+  var MAX_BATCH = 20;
+  var MAX_BATCH_BYTES = 256e3;
+  var KEEPALIVE_BUDGET_BYTES = 6e4;
+  var ENVELOPE_OVERHEAD_BYTES = 200;
+  function jsonBytes(value) {
+    const s = JSON.stringify(value);
+    return typeof TextEncoder === "function" ? new TextEncoder().encode(s).length : s.length;
+  }
+  function sized(entry) {
+    try {
+      const item = toBatchItem(entry);
+      return { item, size: jsonBytes(item) };
+    } catch (e) {
+      debugLog("unsendable error report dropped", e);
+      return null;
+    }
+  }
+  function fit(built, limit) {
+    if (!built) return null;
+    if (built.size <= limit) return built;
+    const item = slimItem(built.item);
+    const size = jsonBytes(item);
+    return size <= limit ? { item, size } : null;
+  }
+  function planBatch(queue2, { keepalive }) {
+    var _a;
+    const budget = keepalive ? KEEPALIVE_BUDGET_BYTES : MAX_BATCH_BYTES;
+    const limit = budget - ENVELOPE_OVERHEAD_BYTES;
+    const plan = { game: void 0, entries: [], items: [], bytes: ENVELOPE_OVERHEAD_BYTES, consumed: 0, unsendable: [] };
+    for (const entry of queue2) {
+      const game = (_a = entry.payload) == null ? void 0 : _a.game;
+      if (plan.entries.length && (plan.entries.length >= MAX_BATCH || game !== plan.game || entry.solo || plan.entries[0].solo)) break;
+      const fitted = fit(sized(entry), limit);
+      if (!fitted) {
+        plan.unsendable.push(entry);
+        plan.consumed += 1;
+        continue;
+      }
+      if (plan.entries.length && plan.bytes + fitted.size > budget) break;
+      plan.game = game;
+      plan.entries.push(entry);
+      plan.items.push(fitted.item);
+      plan.bytes += fitted.size + 1;
+      plan.consumed += 1;
+    }
+    return plan;
+  }
+
+  // skills/moonforge-implement/assets/moonforge-sdk/error-queue.js
+  var FLUSH_INTERVAL_MS = 5e3;
+  var FLUSH_AT = 20;
+  var MAX_QUEUE = 200;
+  var REPEAT_REPORT_INTERVAL_MS = 6e4;
+  var MAX_TRACKED_FINGERPRINTS = 1e3;
+  var DEFAULT_RETRY_AFTER_MS = 6e4;
+  var MAX_SEND_ATTEMPTS = 6;
+  var MIN_PAUSE_MS = 1e3;
+  var MAX_PAUSE_MS = 60 * 60 * 1e3;
+  var BASE_BACKOFF_MS = 5e3;
+  var MAX_BACKOFF_MS = 5 * 60 * 1e3;
+  var EMPTY_STATS = Object.freeze({ sent: 0, dropped: 0, suppressed: 0, rejected: 0 });
+  function freshSession(id) {
+    return { id, records: /* @__PURE__ */ new Map(), distinctReported: 0 };
+  }
+  var session = freshSession(null);
+  var queue = [];
+  var stats = EMPTY_STATS;
+  var rateLimitedUntil = 0;
+  var backoffUntil = 0;
+  var failureStreak = 0;
+  var timer = null;
+  var inFlight = null;
+  var lifecycle = null;
+  function bump(key, n = 1) {
+    stats = { ...stats, [key]: stats[key] + n };
+  }
+  function pausedUntil() {
+    return Math.max(rateLimitedUntil, backoffUntil);
+  }
+  function isPaused() {
+    return Date.now() < pausedUntil();
+  }
+  function isRateLimited() {
+    return Date.now() < rateLimitedUntil;
+  }
+  function reportCap() {
+    var _a, _b;
+    return (_b = (_a = getConfig()) == null ? void 0 : _a.maxErrorReportsPerSession) != null ? _b : DEFAULT_MAX_ERROR_REPORTS_PER_SESSION;
+  }
+  function newEntry(fingerprint, payload, count, repeat) {
+    return { id: newUuid(), fingerprint, payload, count, repeat, attempts: 0 };
+  }
+  function discard(entries) {
+    if (!entries.length) return;
+    bump("dropped", entries.length);
+    for (const e of entries) {
+      const rec = session.records.get(e.fingerprint);
+      if (!e.repeat && rec && rec.queuedId === e.id) {
+        session.records.delete(e.fingerprint);
+        session = { ...session, distinctReported: Math.max(0, session.distinctReported - 1) };
+      }
+    }
+  }
+  function bounded(list) {
+    const overflow = list.length - MAX_QUEUE;
+    if (overflow <= 0) return list;
+    discard(list.slice(0, overflow));
+    return list.slice(overflow);
+  }
+  function scheduleFlush(delayMs) {
+    if (timer || typeof setTimeout !== "function") return;
+    const wait = Math.max(delayMs, pausedUntil() - Date.now());
+    timer = setTimeout(() => {
+      timer = null;
+      void flushErrors();
+    }, wait);
+    if (timer && typeof timer.unref === "function") timer.unref();
+  }
+  function enqueue(entry) {
+    queue = bounded([...queue, entry]);
+    if (queue.length >= FLUSH_AT && !isPaused() && !inFlight) void flushErrors();
+    else scheduleFlush(FLUSH_INTERVAL_MS);
+  }
+  function incrementQueued(entryId) {
+    if (!queue.some((e) => e.id === entryId)) return false;
+    queue = queue.map((e) => e.id === entryId ? { ...e, count: e.count + 1 } : e);
+    return true;
+  }
+  function promoteRepeats(now, force) {
+    for (const [fp, rec] of session.records) {
+      if (rec.pending > 0 && rec.lastPayload && (force || now - rec.lastReportAt >= REPEAT_REPORT_INTERVAL_MS)) {
+        const entry = newEntry(fp, rec.lastPayload, rec.pending, true);
+        session.records.set(fp, { ...rec, pending: 0, lastPayload: null, queuedId: entry.id, lastReportAt: now });
+        queue = bounded([...queue, entry]);
+      }
+    }
+  }
+  function hasPendingRepeats() {
+    for (const rec of session.records.values()) if (rec.pending > 0) return true;
+    return false;
+  }
+  function rollSession(sessionId) {
+    if (session.id === sessionId) return;
+    if (session.id !== null) promoteRepeats(Date.now(), true);
+    session = freshSession(sessionId);
+  }
+  function recordFirst(fp, payload) {
+    const now = Date.now();
+    if (session.records.size >= MAX_TRACKED_FINGERPRINTS) {
+      bump("suppressed");
+      return false;
+    }
+    if (session.distinctReported >= reportCap()) {
+      session.records.set(fp, { reported: false, queuedId: null, pending: 0, lastPayload: null, lastReportAt: now });
+      bump("suppressed");
+      return false;
+    }
+    const entry = newEntry(fp, payload, 1, false);
+    session = { ...session, distinctReported: session.distinctReported + 1 };
+    session.records.set(fp, { reported: true, queuedId: entry.id, pending: 0, lastPayload: null, lastReportAt: now });
+    enqueue(entry);
+    return true;
+  }
+  function recordRepeat(fp, rec, payload) {
+    if (!rec.reported) {
+      bump("suppressed");
+      return false;
+    }
+    if (rec.queuedId && incrementQueued(rec.queuedId)) return true;
+    const { breadcrumbs: _omit, ...withoutBreadcrumbs } = payload;
+    session.records.set(fp, { ...rec, queuedId: null, pending: rec.pending + 1, lastPayload: withoutBreadcrumbs });
+    scheduleFlush(FLUSH_INTERVAL_MS);
+    return true;
+  }
+  function recordError(fingerprint, payload) {
+    var _a;
+    try {
+      rollSession((_a = payload == null ? void 0 : payload.sessionId) != null ? _a : null);
+      const rec = session.records.get(fingerprint);
+      return rec ? recordRepeat(fingerprint, rec, payload) : recordFirst(fingerprint, payload);
+    } catch (e) {
+      debugLog("error queue failure", e);
+      return false;
+    }
+  }
+  function takeBatch(keepalive) {
+    const plan = planBatch(queue, { keepalive });
+    queue = queue.slice(plan.consumed);
+    discard(plan.unsendable);
+    return plan;
+  }
+  function pauseFor(ms, rateLimited) {
+    const until = Date.now() + Math.min(Math.max(ms, MIN_PAUSE_MS), MAX_PAUSE_MS);
+    if (rateLimited) rateLimitedUntil = Math.max(rateLimitedUntil, until);
+    else backoffUntil = Math.max(backoffUntil, until);
+    debugLog("error sending paused until", until, rateLimited ? "(429)" : "(backoff)");
+  }
+  function requeue(entries, { countAttempt = false, solo = false } = {}) {
+    const updated = entries.map((e) => ({ ...e, attempts: e.attempts + (countAttempt ? 1 : 0), solo: e.solo || solo }));
+    discard(updated.filter((e) => e.attempts >= MAX_SEND_ATTEMPTS));
+    queue = bounded([...updated.filter((e) => e.attempts < MAX_SEND_ATTEMPTS), ...queue]);
+  }
+  function isRetryable(status) {
+    return status === 0 || status === 408 || status === 425 || status >= 500;
+  }
+  async function sendBatch(plan, teardown) {
+    var _a;
+    const { entries, items } = plan;
+    const keepalive = teardown || plan.bytes <= KEEPALIVE_BUDGET_BYTES;
+    const res = await postErrorBatch({ type: "error_batch", game: plan.game, errors: items }, { keepalive });
+    if (res.ok) {
+      failureStreak = 0;
+      bump("sent", items.length);
+      return "sent";
+    }
+    if (res.status === 429) {
+      pauseFor((_a = res.retryAfterMs) != null ? _a : DEFAULT_RETRY_AFTER_MS, true);
+      requeue(entries);
+      return "paused";
+    }
+    if (isRetryable(res.status)) {
+      failureStreak += 1;
+      pauseFor(Math.min(BASE_BACKOFF_MS * 2 ** (failureStreak - 1), MAX_BACKOFF_MS), false);
+      requeue(entries, { countAttempt: true });
+      return "failed";
+    }
+    if ((res.status === 400 || res.status === 413) && entries.length > 1) {
+      requeue(entries, { solo: true });
+      return "split";
+    }
+    bump("rejected", items.length);
+    debugLog("error batch rejected", res.status);
+    return "rejected";
+  }
+  async function sendBatches(maxBatches) {
+    for (let i = 0; i < maxBatches && queue.length && !isPaused(); i++) {
+      const plan = takeBatch(false);
+      if (!plan.items.length) continue;
+      const outcome = await sendBatch(plan, false);
+      if (outcome === "paused" || outcome === "failed") return false;
+    }
+    return queue.length === 0;
+  }
+  async function sendForTeardown() {
+    if (isRateLimited()) return false;
+    const plans = [];
+    while (queue.length) {
+      const plan = takeBatch(true);
+      if (plan.items.length) plans.push(plan);
+    }
+    const outcomes = await Promise.all(plans.map((p) => sendBatch(p, true)));
+    return outcomes.every((o) => o === "sent" || o === "rejected");
+  }
+  function afterFlush() {
+    if (queue.length || hasPendingRepeats()) scheduleFlush(FLUSH_INTERVAL_MS);
+  }
+  async function flushErrors({ keepalive = false, drain = false } = {}) {
+    try {
+      if (!getConfig()) return false;
+      promoteRepeats(Date.now(), keepalive || drain);
+      if (keepalive) return await sendForTeardown();
+      while (inFlight) await inFlight;
+      inFlight = sendBatches(drain ? Infinity : 1);
+      try {
+        return await inFlight;
+      } finally {
+        inFlight = null;
+        afterFlush();
+      }
+    } catch (e) {
+      debugLog("error flush failed", e);
+      return false;
+    }
+  }
+  function installErrorQueueLifecycle() {
+    if (lifecycle || typeof globalThis.addEventListener !== "function") return;
+    const onPageHide = () => {
+      void flushErrors({ keepalive: true });
+    };
+    const onVisibility = () => {
+      var _a;
+      if (((_a = globalThis.document) == null ? void 0 : _a.visibilityState) === "hidden") onPageHide();
+    };
+    globalThis.addEventListener("pagehide", onPageHide);
+    globalThis.addEventListener("visibilitychange", onVisibility);
+    lifecycle = { onPageHide, onVisibility };
+  }
+  function getErrorQueueStats() {
+    return { ...stats, queued: queue.length, distinctReported: session.distinctReported, paused: isPaused(), pausedUntil: pausedUntil() };
+  }
+
   // skills/moonforge-implement/assets/moonforge-sdk/errors.js
   var MAX_BREADCRUMBS = 50;
   var store = { breadcrumbs: [], user: null };
@@ -469,13 +939,13 @@
     }
     return true;
   }
-  function stringTags(tags) {
+  function stringTags(tags2) {
     const out = {};
-    for (const [k, v] of Object.entries(tags != null ? tags : {})) out[k] = String(v);
+    for (const [k, v] of Object.entries(tags2 != null ? tags2 : {})) out[k] = String(v);
     return out;
   }
-  function setUser(userId, tags = {}) {
-    store.user = { userId, tags: stringTags(tags) };
+  function setUser(userId, tags2 = {}) {
+    store.user = { userId, tags: stringTags(tags2) };
   }
   function clearUser() {
     store.user = null;
@@ -523,36 +993,45 @@
     if ((_c = store.user) == null ? void 0 : _c.userId) payload.userId = store.user.userId;
     return payload;
   }
-  function captureException(error, { level = ErrorLevel.Error, tags = {}, category = "handled" } = {}) {
-    if (!ensure2()) return void 0;
+  function submit(build) {
     try {
+      const { fingerprint, payload } = build();
+      return Promise.resolve(recordError(fingerprint, payload));
+    } catch {
+      return Promise.resolve(false);
+    }
+  }
+  function captureException(error, { level = ErrorLevel.Error, tags: tags2 = {}, category = "handled" } = {}) {
+    if (!ensure2()) return void 0;
+    return submit(() => {
       const e = error instanceof Error ? error : new Error(String(error));
-      const payload = { ...baseEnvelope("exception", category, level, tags), message: String(e.message).slice(0, 5e3), exceptionClass: e.name || "Error", frames: parseFrames(e.stack), rawStackTrace: e.stack ? String(e.stack).slice(0, 5e4) : void 0 };
-      return postError({ type: "error", payload });
-    } catch {
-      return false;
-    }
+      const message = String(e.message).slice(0, 5e3);
+      const exceptionClass = e.name || "Error";
+      const frames = parseFrames(e.stack);
+      const payload = { ...baseEnvelope("exception", category, level, tags2), message, exceptionClass, frames, rawStackTrace: e.stack ? String(e.stack).slice(0, 5e4) : void 0 };
+      return { fingerprint: exceptionFingerprint(exceptionClass, message, frames), payload };
+    });
   }
-  function captureMessage(message, { level = ErrorLevel.Info, tags = {} } = {}) {
+  function captureMessage(message, { level = ErrorLevel.Info, tags: tags2 = {} } = {}) {
     if (!ensure2()) return void 0;
-    try {
-      return postError({ type: "error", payload: { ...baseEnvelope("custom", "handled", level, tags), message: String(message).slice(0, 5e3) } });
-    } catch {
-      return false;
-    }
+    return submit(() => {
+      const text = String(message).slice(0, 5e3);
+      return { fingerprint: messageFingerprint(level, text), payload: { ...baseEnvelope("custom", "handled", level, tags2), message: text } };
+    });
   }
-  function captureNetworkError(url, { method = "GET", statusCode, errorMessage, durationMs, tags = {} } = {}) {
+  function captureNetworkError(url, { method = "GET", statusCode, errorMessage, durationMs, tags: tags2 = {} } = {}) {
     if (!ensure2()) return void 0;
-    try {
+    return submit(() => {
       addBreadcrumb(`${method} ${url} -> ${statusCode != null ? statusCode : "failed"}`, { type: BreadcrumbType.Network, level: BreadcrumbLevel.Error });
-      const payload = { ...baseEnvelope("network", "handled", ErrorLevel.Error, tags), message: String(errorMessage != null ? errorMessage : `${method} ${url} failed`).slice(0, 5e3), networkRequest: { url: String(url).slice(0, 2e3), method, statusCode, durationMs } };
-      return postError({ type: "error", payload });
-    } catch {
-      return false;
-    }
+      const payload = { ...baseEnvelope("network", "handled", ErrorLevel.Error, tags2), message: String(errorMessage != null ? errorMessage : `${method} ${url} failed`).slice(0, 5e3), networkRequest: { url: String(url).slice(0, 2e3), method, statusCode, durationMs } };
+      return { fingerprint: networkFingerprint(method, url, statusCode), payload };
+    });
   }
   function flush2() {
-    return Promise.resolve(true);
+    return flushErrors({ drain: true });
+  }
+  function getStats() {
+    return getErrorQueueStats();
   }
   function _captureUnhandled(error) {
     return captureException(error, { category: "unhandled", level: ErrorLevel.Error });
@@ -561,7 +1040,6 @@
   // skills/moonforge-implement/assets/moonforge-sdk/index.js
   var sessionStartedAt = 0;
   var autoInstalled = false;
-  var NETWORK_ERROR_STATUS_THRESHOLD = 400;
   function requestUrl(input) {
     if (typeof input === "string") return input;
     if (input && typeof input.href === "string") return input.href;
@@ -605,12 +1083,15 @@
       _captureUnhandled(r instanceof Error ? r : new Error(String(r)));
     });
   }
-  function installFetchInterceptor(threshold = NETWORK_ERROR_STATUS_THRESHOLD) {
+  function isAbort(e) {
+    return (e == null ? void 0 : e.name) === "AbortError";
+  }
+  function installFetchInterceptor() {
     if (typeof globalThis.fetch !== "function" || globalThis.__mfFetchWrapped) return;
     globalThis.__mfFetchWrapped = true;
     const orig = globalThis.fetch.bind(globalThis);
     globalThis.fetch = async (...args) => {
-      var _a, _b, _c, _d;
+      var _a, _b, _c, _d, _e, _f;
       const start = Date.now();
       const url = requestUrl(args[0]);
       const method = ((_d = (_c = (_a = args[1]) == null ? void 0 : _a.method) != null ? _c : typeof args[0] !== "string" ? (_b = args[0]) == null ? void 0 : _b.method : void 0) != null ? _d : "GET").toUpperCase();
@@ -618,10 +1099,11 @@
       if (!url || cfg && url.startsWith(cfg.apiEndpoint)) return orig(...args);
       try {
         const res = await orig(...args);
-        if (res.status >= threshold) captureNetworkError(url, { method, statusCode: res.status, durationMs: Date.now() - start });
+        const minStatus = (_f = (_e = getConfig()) == null ? void 0 : _e.networkErrorMinStatus) != null ? _f : DEFAULT_NETWORK_ERROR_MIN_STATUS;
+        if (res.status >= minStatus) captureNetworkError(url, { method, statusCode: res.status, durationMs: Date.now() - start });
         return res;
       } catch (e) {
-        captureNetworkError(url, { method, errorMessage: String(e), durationMs: Date.now() - start });
+        if (!isAbort(e)) captureNetworkError(url, { method, errorMessage: String(e), durationMs: Date.now() - start });
         throw e;
       }
     };
@@ -634,6 +1116,7 @@
     if (firstOpen) trackFirstOpen();
     if (previousVersion) trackAppUpdate(previousVersion);
     installAutoCapture();
+    installErrorQueueLifecycle();
     if (cfg.autoTrackSession) startSession();
     if (cfg.trackNetworkErrors) installFetchInterceptor();
     return cfg;
@@ -681,7 +1164,8 @@
     captureException,
     captureMessage,
     captureNetworkError,
-    flush: flush2
+    flush: flush2,
+    getStats
   };
   var ErrorLevel2 = ErrorLevel;
   var BreadcrumbType2 = BreadcrumbType;
