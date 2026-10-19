@@ -1131,8 +1131,9 @@
   function captureNetworkError(url, { method = "GET", statusCode, errorMessage, durationMs, tags: tags2 = {} } = {}) {
     if (!ensure2()) return void 0;
     return submit(() => {
-      addBreadcrumb(`${method} ${url} -> ${statusCode != null ? statusCode : "failed"}`, { type: BreadcrumbType.Network, level: BreadcrumbLevel.Error });
-      const payload = { ...baseEnvelope("network", "handled", ErrorLevel.Error, tags2), message: String(errorMessage != null ? errorMessage : `${method} ${url} failed`).slice(0, 5e3), networkRequest: { url: String(url).slice(0, 2e3), method, statusCode, durationMs } };
+      const safeUrl = urlPath(url);
+      addBreadcrumb(`${method} ${safeUrl} -> ${statusCode != null ? statusCode : "failed"}`, { type: BreadcrumbType.Network, level: BreadcrumbLevel.Error });
+      const payload = { ...baseEnvelope("network", "handled", ErrorLevel.Error, tags2), message: String(errorMessage != null ? errorMessage : `${method} ${safeUrl} failed`).slice(0, 5e3), networkRequest: { url: safeUrl.slice(0, 2e3), method, statusCode, durationMs } };
       return { fingerprint: networkFingerprint(method, url, statusCode), payload };
     });
   }

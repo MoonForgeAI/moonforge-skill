@@ -2,7 +2,7 @@
 // batched by error-queue.js, which sends them to POST /api/errors/batch.
 import { isReady, getConfig, getSessionId, unixSeconds, BreadcrumbType, BreadcrumbLevel, ErrorLevel } from './core.js';
 import { getDeviceContext, getNetworkContext, getGameState } from './context.js';
-import { exceptionFingerprint, messageFingerprint, networkFingerprint } from './error-fingerprint.js';
+import { exceptionFingerprint, messageFingerprint, networkFingerprint, urlPath } from './error-fingerprint.js';
 import { flushErrors, getErrorQueueStats, recordError } from './error-queue.js';
 
 const MAX_BREADCRUMBS = 50;
@@ -86,8 +86,11 @@ export function captureMessage(message, { level = ErrorLevel.Info, tags = {} } =
 export function captureNetworkError(url, { method = 'GET', statusCode, errorMessage, durationMs, tags = {} } = {}) {
   if (!ensure()) return undefined;
   return submit(() => {
-    addBreadcrumb(`${method} ${url} -> ${statusCode ?? 'failed'}`, { type: BreadcrumbType.Network, level: BreadcrumbLevel.Error });
-    const payload = { ...baseEnvelope('network', 'handled', ErrorLevel.Error, tags), message: String(errorMessage ?? `${method} ${url} failed`).slice(0, 5000), networkRequest: { url: String(url).slice(0, 2000), method, statusCode, durationMs } };
+    // Only origin + path ever leaves the browser: query strings, fragments and
+    // userinfo can carry tokens and personal data.
+    const safeUrl = urlPath(url);
+    addBreadcrumb(`${method} ${safeUrl} -> ${statusCode ?? 'failed'}`, { type: BreadcrumbType.Network, level: BreadcrumbLevel.Error });
+    const payload = { ...baseEnvelope('network', 'handled', ErrorLevel.Error, tags), message: String(errorMessage ?? `${method} ${safeUrl} failed`).slice(0, 5000), networkRequest: { url: safeUrl.slice(0, 2000), method, statusCode, durationMs } };
     return { fingerprint: networkFingerprint(method, url, statusCode), payload };
   });
 }

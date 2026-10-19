@@ -48,6 +48,15 @@ describe('errors', () => {
     expect(item.networkRequest).toMatchObject({ url: 'https://api.x/y', method: 'POST', statusCode: 500, durationMs: 120 });
   });
 
+  it('captureNetworkError never sends query strings, fragments or credentials in the URL', async () => {
+    const f = mockErr();
+    await err.captureNetworkError('https://user:pw@api.x/y?token=SECRET&id=7#frag', { method: 'GET', statusCode: 502 });
+    const item = await lastItem(f);
+    expect(item.networkRequest.url).toBe('https://api.x/y');
+    expect(JSON.stringify(item)).not.toMatch(/SECRET|token=|pw@|#frag/);
+    expect(err.getBreadcrumbs().at(-1).message).toBe('GET https://api.x/y -> 502');
+  });
+
   it('breadcrumb ring buffer caps at 50', () => {
     for (let i = 0; i < 60; i++) err.addBreadcrumb(`b${i}`);
     const bc = err.getBreadcrumbs();
