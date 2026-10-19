@@ -182,4 +182,39 @@ describe('core', () => {
     core.clearUserProps();
     expect(core.getUserProps()).toEqual({});
   });
+
+  describe('error reporting options', () => {
+    it('defaults networkErrorMinStatus to 500 and maxErrorReportsPerSession to 100', () => {
+      expect(core.getConfig()).toMatchObject({ networkErrorMinStatus: 500, maxErrorReportsPerSession: 100 });
+    });
+
+    it('accepts valid overrides', () => {
+      core.init({ gameId: 'g-1', networkErrorMinStatus: 400, maxErrorReportsPerSession: 0 });
+      expect(core.getConfig()).toMatchObject({ networkErrorMinStatus: 400, maxErrorReportsPerSession: 0 });
+    });
+
+    it('falls back to defaults (with a warning) on invalid values', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      core.init({ gameId: 'g-1', appVersion: '1.0.0', networkErrorMinStatus: 'x', maxErrorReportsPerSession: -5 });
+      expect(core.getConfig()).toMatchObject({ networkErrorMinStatus: 500, maxErrorReportsPerSession: 100 });
+      expect(warn).toHaveBeenCalledTimes(2);
+      core.init({ gameId: 'g-1', networkErrorMinStatus: 99.5, maxErrorReportsPerSession: 1.5 });
+      expect(core.getConfig()).toMatchObject({ networkErrorMinStatus: 500, maxErrorReportsPerSession: 100 });
+    });
+
+    it('clamps maxErrorReportsPerSession to 1000', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      core.init({ gameId: 'g-1', appVersion: '1.0.0', maxErrorReportsPerSession: 5000 });
+      expect(core.getConfig().maxErrorReportsPerSession).toBe(1000);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('keeps distinct and session ids stable in-page when localStorage refuses access', () => {
+    vi.stubGlobal('localStorage', { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); }, clear() {} });
+    const d = core.getDistinctId();
+    const s1 = core.getSessionId();
+    expect(core.getDistinctId()).toBe(d);
+    expect(core.getSessionId()).toBe(s1);
+  });
 });

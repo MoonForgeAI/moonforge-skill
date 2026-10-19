@@ -36,8 +36,8 @@ describe('index wiring', () => {
     const sdk = await fresh();
     sdk.MoonForgeAnalytics.init({ gameId: 'g-1' });
     globalThis.dispatchEvent(new ErrorEvent('error', { error: new Error('kaboom'), message: 'kaboom' }));
-    await Promise.resolve(); await Promise.resolve();
-    const hitErrors = f.mock.calls.some((c) => String(c[0]).endsWith('/api/errors'));
+    await sdk.MoonForgeErrorTracker.flush();
+    const hitErrors = f.mock.calls.some((c) => String(c[0]).endsWith('/api/errors/batch'));
     expect(hitErrors).toBe(true);
   });
 
@@ -52,7 +52,7 @@ describe('index wiring', () => {
     const bodies = [];
     const orig = vi.fn(async (input, init) => {
       const u = typeof input === 'string' ? input : (input?.href ?? input?.url ?? String(input));
-      const isErrors = u.endsWith('/api/errors');
+      const isErrors = u.endsWith('/api/errors/batch');
       if (isErrors) bodies.push(JSON.parse(init.body));
       return { ok: isErrors, status: isErrors ? 200 : 500, json: async () => ({}) };
     });
@@ -60,9 +60,9 @@ describe('index wiring', () => {
     const sdk = await import('../../skills/moonforge-implement/assets/moonforge-sdk/index.js');
     sdk.MoonForgeAnalytics.init({ gameId: 'g-1', trackNetworkErrors: true });
     await globalThis.fetch(new URL('https://api.game.example/data'));
-    await Promise.resolve(); await Promise.resolve();
+    await sdk.MoonForgeErrorTracker.flush();
     expect(bodies.length).toBe(1);
-    expect(bodies[0].payload.networkRequest.url).toBe('https://api.game.example/data');
+    expect(bodies[0].errors[0].networkRequest.url).toBe('https://api.game.example/data');
   });
 
   it('session_end re-arms: hidden fires end, returning visible re-starts, pagehide ends again', async () => {
@@ -129,5 +129,65 @@ describe('index wiring', () => {
     const update = bodies.find((b) => b.payload.name === 'app_update');
     expect(update).toBeTruthy();
     expect(update.payload.data.previous_version).toBe('1.0.0');
+  });
+
+  describe('fetch interceptor thresholds', () => {
+    /** Game API answers with `status`; the collector always 200s. Returns the network reports sent. */
+    async function run(status, opts = {}, input = 'https://api.game.example/save?x=1') {
+      vi.resetModules();
+      delete globalThis.__mfFetchWrapped; // each run installs a fresh interceptor
+      const reports = [];
+      vi.stubGlobal('fetch', vi.fn(async (u, init) => {
+        const url = typeof u === 'string' ? u : (u?.href ?? u?.url);
+        if (url.endsWith('/api/errors/batch')) {
+          reports.push(...JSON.parse(init.body).errors);
+          return { ok: true, status: 200, json: async () => ({}) };
+        }
+        if (status instanceof Error) throw status;
+        return { ok: status < 400, status, json: async () => ({}) };
+      }));
+      const sdk = await import('../../skills/moonforge-implement/assets/moonforge-sdk/index.js');
+      sdk.MoonForgeAnalytics.init({ gameId: 'g-1', trackNetworkErrors: true, ...opts });
+      try { await globalThis.fetch(input, { method: 'POST' }); } catch { /* rethrown to the game, by design */ }
+      await sdk.MoonForgeErrorTracker.flush();
+      return reports.filter((r) => r.errorType === 'network');
+    }
+
+    it('does not report 4xx responses by default', async () => {
+      expect(await run(404)).toHaveLength(0);
+      expect(await run(429)).toHaveLength(0);
+    });
+
+    it('reports 5xx responses by default', async () => {
+      const [r] = await run(503);
+      expect(r.networkRequest).toMatchObject({ method: 'POST', statusCode: 503 });
+    });
+
+    it('honours networkErrorMinStatus', async () => {
+      expect(await run(404, { networkErrorMinStatus: 400 })).toHaveLength(1);
+      expect(await run(503, { networkErrorMinStatus: 600 })).toHaveLength(0);
+    });
+
+    it('reports a fetch that throws, and still rethrows it to the game', async () => {
+      const reports = await run(new TypeError('Failed to fetch'));
+      expect(reports).toHaveLength(1);
+      expect(reports[0].message).toContain('Failed to fetch');
+    });
+
+    it('does not report a request the game aborted itself', async () => {
+      const abort = new Error('The operation was aborted.');
+      abort.name = 'AbortError';
+      expect(await run(abort)).toHaveLength(0);
+    });
+
+    it('never intercepts calls to the collector apiEndpoint', async () => {
+      expect(await run(500, {}, 'https://collector.moonforge.co/api/send')).toHaveLength(0);
+    });
+  });
+
+  it('MoonForgeErrorTracker exposes queue stats for diagnostics', async () => {
+    const sdk = await fresh();
+    sdk.MoonForgeAnalytics.init({ gameId: 'g-1' });
+    expect(sdk.MoonForgeErrorTracker.getStats()).toMatchObject({ queued: 0, dropped: 0, suppressed: 0 });
   });
 });

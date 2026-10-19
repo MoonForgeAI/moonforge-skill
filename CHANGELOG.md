@@ -6,6 +6,66 @@ This project adheres to [Semantic Versioning](https://semver.org/). The
 `version` in `package.json`, the `version:` in every `SKILL.md` frontmatter, and
 the git tag are kept in lockstep.
 
+## [1.8.0] — 2026-10-16
+
+### Fixed
+
+- **Web SDK error reporting no longer floods the collector** (MOONFORGE-346).
+  One live game's copy produced ~4M error reports a day, which the collector
+  answered with 429s. Four causes, all fixed:
+  - The fetch interceptor reported every 4xx from the game's own API. It now
+    reports only responses with status ≥ `networkErrorMinStatus` (default
+    `500`) and fetches that throw (aborts excluded). Requests to the
+    collector's `apiEndpoint` are still never intercepted.
+  - Every error was its own `POST /api/errors`. Reports are now queued and
+    sent to `POST /api/errors/batch` every 5s or at 20 queued (≤ 20 per
+    request), and on `pagehide` / tab hide with `fetch` keepalive within one
+    shared 60KB budget (the browser's ~64KB limit is on the total in flight);
+    ordinary flushes do not use keepalive.
+  - Repeats were not merged. Each error gets a client-side fingerprint (type +
+    message + top frame; network: method + URL path without query + status).
+    The first occurrence per session carries breadcrumbs; repeats add to a
+    count, sent as `tags.mf_occurrences` (count-only reports carry
+    `mf_repeat: "true"` and no breadcrumbs, at most once per 60s per
+    fingerprint). At most `maxErrorReportsPerSession` (default `100`, max
+    `1000`; the count is persisted per session, so a reload does not reset it)
+    distinct reports per session; past it, counts are kept locally only.
+  - The 429 `retryAfterMs` was ignored. All error sending now pauses until
+    it elapses (default 60s). The queue is bounded at 200, dropping the
+    oldest, with drops counted.
+- Batch items are coerced to the collector's schema (string fields such as a
+  numeric `levelId` or user id are stringified and clipped, invalid enum
+  values such as an unknown `errorCategory` fall back to the default). On a
+  400 naming specific reports, only those are dropped and the rest resent
+  once; a request-wide 400 (unknown game) drops the batch without resending;
+  a 413 is resent one report at a time. Transport failures (network, 5xx, 408)
+  retry with exponential backoff, up to 6 attempts per report.
+- Where `localStorage` is blocked (private mode, sandboxed iframes) the
+  distinct id and session id now fall back to in-memory values instead of
+  being re-minted on every read — which also kept errors from deduplicating.
+
+### Added
+
+- `init` options `networkErrorMinStatus` and `maxErrorReportsPerSession`.
+- `MoonForgeErrorTracker.getStats()` (queue diagnostics). `flush()` now
+  actually sends queued reports.
+
+### Changed
+
+- `captureException` / `captureMessage` / `captureNetworkError` still return
+  a Promise of a boolean, but it now resolves once the report is queued (true
+  = it will be sent as a report or a count; false = only counted locally
+  because the session cap was reached), not after delivery.
+- `sdk-contract.md` § Error reporting: the dedupe/cap/batch/backoff rules and
+  the `/api/errors/batch` wire format, required of any SDK that captures
+  errors.
+
+### Upgrading
+
+Web projects with a copied SDK folder must replace the **whole** folder: three
+new modules (`error-queue.js`, `error-batch.js`, `error-fingerprint.js`,
+`error-payload.js`) are imported by `errors.js`. `<script>` games replace `moonforge.global.js`.
+
 ## [1.7.0] — 2026-09-09
 
 ### Added

@@ -42,7 +42,7 @@ generate path.
 | **Persistent distinct id** | Created once, stored on disk, reused across launches. Never derived from a device fingerprint or IP. |
 | **Transport** | Off the main thread, 2–5s timeout, correct User-Agent, every error swallowed. |
 | `flush()` | Best-effort drain, for use before quit. |
-| **Error capture** (optional) | Hook the engine's global handler and POST to `/api/errors`, if the engine has one and the user wants it. Offer; do not assume. |
+| **Error capture** (optional) | Hook the engine's global handler and report through the batched, deduplicated pipeline in [Error reporting](#error-reporting), if the engine has one and the user wants it. Offer; do not assume. Never one POST per error. |
 
 ## Wire protocol
 
@@ -110,6 +110,71 @@ Also **never** send `country`/`region`/`city`/`timezone` — the collector
 derives geolocation from the request IP, more reliably than any client-side
 locale/OS guess. Client-side capture here is a step backward, not extra data.
 
+## Error reporting
+
+One POST per error is not acceptable: a single looping failure in one live game
+produced ~4M reports a day and was rate-limited by the collector. Any SDK that
+captures errors must implement all of the following (the bundled web SDK does —
+`errors.js`, `error-queue.js`, `error-batch.js`, `error-fingerprint.js`,
+`error-payload.js`).
+
+| Rule | Behaviour |
+|---|---|
+| **Fingerprint** | Thrown errors: type + message + top stack frame. Network errors: method + URL path **without** query string or fragment + status (`failed` when the request threw). Messages: level + text. The fingerprint is a client-side dedupe key only — never sent; the collector computes its own grouping. |
+| **Dedupe** | The first occurrence of a fingerprint in a session is queued with full breadcrumbs. Repeats only add to a count: merged into the queued report while it is unsent; after it is sent, held and reported as a count-only report (no breadcrumbs, no raw stack — frames remain) at most once per 60s per fingerprint, and on page hide / explicit flush. Dedupe state is in memory: after a page reload, the next occurrence of an error is reported in full again (within the same persisted budget, below). |
+| **Per-session cap** | At most `maxErrorReportsPerSession` (default **100**, clamped to at most 1000) distinct reports per SDK session. The count is persisted per session id (`localStorage` key `mf_error_reports`, in-page memory where storage is blocked), so a reload within the same session does **not** reset the budget; a new session (inactivity timeout) gets a fresh one. Past the cap, occurrences are only counted locally (`getStats().suppressed`). At most 1000 fingerprints are remembered per page. |
+| **Batching** | Queue flushed to `POST /api/errors/batch` every **5s**, or immediately at **20** queued, at most 20 reports and 256KB per request (collector max is 50), one game per request. Ordinary flushes do **not** use `keepalive` — browsers cap the total of in-flight keepalive bodies (~64KB), and that allowance is reserved for page teardown. |
+| **Page teardown** | On `pagehide` and `visibilitychange` → `hidden`: send queued reports (plus held repeat counts) with `fetch(..., { keepalive: true })`, within **one shared 60KB budget across all teardown requests** (the browser limit is on the total in flight, not per request). Requests are planned up front and fired together (the page may freeze at any await); what does not fit stays queued for the next flush if the page survives. A report that alone exceeds the budget drops its raw stack and breadcrumbs to fit. Skipped while a 429 pause is active; attempted even during a transport-failure backoff. |
+| **429 backoff** | On a 429, pause **all** error sending until `now + retryAfterMs` from the body `{ error, reason, retryAfterMs }` (default 60000 if absent, clamped to 1s–1h). The refused batch goes back to the head of the queue. Explicit `flush()` respects the pause. |
+| **Other failures** | Network error, 5xx, 408, 425: retry with exponential backoff (5s doubling, max 5 min), giving up on an entry after 6 attempts. 400: if the body's `details` name specific items (`errors.<i>.…`), drop those and resend the rest once (counted as an attempt); if the rejection is request-wide (`Game not found`, envelope paths, no details), drop the whole batch — never split or resend it. 413 on a multi-report batch: resend each report alone. Any other 4xx: drop (`getStats().rejected`). A dropped *first* report frees its slot, so the next occurrence is sent in full again. |
+| **Bounded queue** | At most **200** entries; when full the oldest are dropped and counted (`getStats().dropped`). |
+| **Schema limits** | Every item is coerced to the collector schema before sending: each string field is `String()`-ed and clipped to its limit (games pass numeric `levelId`s and user ids; message 5000, raw stack 50000, frames 200, breadcrumbs 100, tag values 200, URL 2000, method 10, …), enums (`errorType`, `errorCategory`, `errorLevel`, breadcrumb type/level, network type) fall back to their defaults when invalid, and numeric fields are validated — the collector validates a batch as a whole, so one bad item would reject all 20. |
+| **Network errors** | The fetch interceptor (opt-in, `trackNetworkErrors`) reports only responses with status ≥ `networkErrorMinStatus` (default **500**; 4xx are usually expected application answers) and fetches that throw — except `AbortError`, which the game caused itself. It never intercepts requests to the collector's own `apiEndpoint`. A direct `captureNetworkError(...)` call is always reported. The request URL is reduced to origin + path before it is sent (in `networkRequest.url`, the message and the breadcrumb): query strings, fragments and userinfo can carry tokens and personal data. This differs from analytics events, whose page `url` keeps its query string for attribution. |
+| **Session identity** | Dedupe and the cap are keyed on the SDK session id. Where storage is blocked (private mode, sandboxed iframes), ids must fall back to in-memory values rather than being re-minted on every read — otherwise every error looks like a new session and nothing is deduplicated. |
+| **Never throw** | Every capture call returns a Promise resolving to a boolean once the occurrence is queued (true = it will be sent as a report or a count; delivery is asynchronous); nothing in the pipeline may throw into the game. |
+
+### Error batch wire format
+
+`POST https://collector.moonforge.co/api/errors/batch`, `Content-Type: application/json`.
+
+```json
+{
+  "type": "error_batch",
+  "game": "<GAME_UUID>",
+  "errors": [
+    {
+      "clientErrorId": "<uuid v4, unique per report>",
+      "errorType": "exception",
+      "errorCategory": "unhandled",
+      "errorLevel": "error",
+      "message": "Cannot read properties of undefined (reading 'x')",
+      "exceptionClass": "TypeError",
+      "frames": [{ "function": "load", "filename": "https://game.example/app.js", "lineno": 10, "colno": 5, "inApp": true }],
+      "rawStackTrace": "TypeError: ...",
+      "device": { "platform": "web", "osVersion": "Mac OS X 10.15.7", "deviceModel": "Browser (Chrome)" },
+      "appVersion": "1.4.2",
+      "buildNumber": "1",
+      "sessionId": "<session uuid>",
+      "timestamp": 1755381234,
+      "breadcrumbs": [{ "type": "user", "level": "info", "message": "opened shop", "timestamp": 1755381230000 }],
+      "tags": { "mf_occurrences": "3" }
+    }
+  ]
+}
+```
+
+Items are the single-error payload **without** `game` (it is on the batch),
+plus `clientErrorId`. Unknown fields are silently stripped by the collector, so
+the repeat count travels in `tags`, which it stores:
+
+| Tag | Meaning |
+|---|---|
+| `mf_occurrences` | Occurrences this report stands for, as a string (`"1"` for a single one). Present on every report. |
+| `mf_repeat` | `"true"` on a count-only report for a fingerprint already reported this session (no breadcrumbs). |
+
+The total occurrences of an issue are the sum of `mf_occurrences` across its
+reports, not the row count.
+
 ## The User-Agent trap
 
 The collector runs a bot filter and **discards flagged traffic while still
@@ -153,6 +218,9 @@ framework offers:
   the current one — never on a device's first-ever launch.
 - `url` retains its query string (not truncated to bare `pathname`/scene).
 - A transport failure cannot propagate into game code.
+- If errors are captured: repeats of one error produce one report with a
+  count, not one request each; a 429 pauses sending for `retryAfterMs`; the
+  queue never grows past its bound.
 
 If the project has no test framework and the user does not want one added, say
 plainly that the SDK is untested. Do not imply it was verified.

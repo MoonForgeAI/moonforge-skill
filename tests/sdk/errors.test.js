@@ -2,11 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as core from '../../skills/moonforge-implement/assets/moonforge-sdk/core.js';
 import * as ctx from '../../skills/moonforge-implement/assets/moonforge-sdk/context.js';
 import * as err from '../../skills/moonforge-implement/assets/moonforge-sdk/errors.js';
+import { _resetErrorQueue } from '../../skills/moonforge-implement/assets/moonforge-sdk/error-queue.js';
 
-function lastBody(f) { return JSON.parse(f.mock.calls.at(-1)[1].body); }
-function mockErr() { const f = vi.fn(async () => ({ ok: true, status: 200 })); vi.stubGlobal('fetch', f); return f; }
+// Reports are queued and batched; flush, then return the newest item sent.
+async function lastItem(f) {
+  await err.flush();
+  const b = JSON.parse(f.mock.calls.at(-1)[1].body);
+  expect(f.mock.calls.at(-1)[0]).toMatch(/\/api\/errors\/batch$/);
+  expect(b.type).toBe('error_batch');
+  return b.errors.at(-1);
+}
+function mockErr() { const f = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) })); vi.stubGlobal('fetch', f); return f; }
 
-beforeEach(() => { core.resetAll(); ctx.clearGameState(); err.clearBreadcrumbs(); err.clearUser(); core.init({ gameId: 'g-1', appVersion: '2.1.0', buildNumber: '42' }); });
+beforeEach(() => { core.resetAll(); ctx.clearGameState(); err.clearBreadcrumbs(); err.clearUser(); _resetErrorQueue(); core.init({ gameId: 'g-1', appVersion: '2.1.0', buildNumber: '42' }); });
 
 describe('errors', () => {
   it('captureException posts the required error envelope', async () => {
@@ -14,31 +22,39 @@ describe('errors', () => {
     ctx.setGameState({ sceneName: 'Arena' });
     err.setUser('u-9', { email: 'a@b.co' });
     await err.captureException(new TypeError('boom'), { tags: { area: 'inventory' } });
-    const b = lastBody(f);
-    expect(b.type).toBe('error');
-    expect(b.payload).toMatchObject({
-      game: 'g-1', errorType: 'exception', errorCategory: 'handled', errorLevel: 'error',
+    const item = await lastItem(f);
+    expect(item).toMatchObject({
+      errorType: 'exception', errorCategory: 'handled', errorLevel: 'error',
       message: 'boom', exceptionClass: 'TypeError', appVersion: '2.1.0', buildNumber: '42', userId: 'u-9',
     });
-    expect(b.payload.device.platform).toBe('web');
-    expect(Array.isArray(b.payload.frames)).toBe(true);
-    expect(b.payload.gameState).toMatchObject({ sceneName: 'Arena' });
-    expect(b.payload.tags).toMatchObject({ email: 'a@b.co', area: 'inventory' });
+    expect(item.device.platform).toBe('web');
+    expect(Array.isArray(item.frames)).toBe(true);
+    expect(item.gameState).toMatchObject({ sceneName: 'Arena' });
+    expect(item.tags).toMatchObject({ email: 'a@b.co', area: 'inventory' });
   });
 
   it('captureMessage uses errorType custom', async () => {
     const f = mockErr();
     await err.captureMessage('heads up', { level: 'warning' });
-    const b = lastBody(f);
-    expect(b.payload).toMatchObject({ errorType: 'custom', errorCategory: 'handled', errorLevel: 'warning', message: 'heads up' });
+    const item = await lastItem(f);
+    expect(item).toMatchObject({ errorType: 'custom', errorCategory: 'handled', errorLevel: 'warning', message: 'heads up' });
   });
 
   it('captureNetworkError uses errorType network + networkRequest', async () => {
     const f = mockErr();
     await err.captureNetworkError('https://api.x/y', { method: 'POST', statusCode: 500, durationMs: 120 });
-    const b = lastBody(f);
-    expect(b.payload.errorType).toBe('network');
-    expect(b.payload.networkRequest).toMatchObject({ url: 'https://api.x/y', method: 'POST', statusCode: 500, durationMs: 120 });
+    const item = await lastItem(f);
+    expect(item.errorType).toBe('network');
+    expect(item.networkRequest).toMatchObject({ url: 'https://api.x/y', method: 'POST', statusCode: 500, durationMs: 120 });
+  });
+
+  it('captureNetworkError never sends query strings, fragments or credentials in the URL', async () => {
+    const f = mockErr();
+    await err.captureNetworkError('https://user:pw@api.x/y?token=SECRET&id=7#frag', { method: 'GET', statusCode: 502 });
+    const item = await lastItem(f);
+    expect(item.networkRequest.url).toBe('https://api.x/y');
+    expect(JSON.stringify(item)).not.toMatch(/SECRET|token=|pw@|#frag/);
+    expect(err.getBreadcrumbs().at(-1).message).toBe('GET https://api.x/y -> 502');
   });
 
   it('breadcrumb ring buffer caps at 50', () => {
@@ -52,7 +68,7 @@ describe('errors', () => {
     const f = mockErr();
     const r = await err.captureNetworkError('https://x/y', { method: 'GET', errorMessage: 12345 });
     expect(r).toBe(true);
-    expect(typeof JSON.parse(f.mock.calls.at(-1)[1].body).payload.message).toBe('string');
+    expect(typeof (await lastItem(f)).message).toBe('string');
   });
 
   it('parses Firefox/Safari style stack frames', async () => {
@@ -60,9 +76,22 @@ describe('errors', () => {
     const e = new Error('x');
     e.stack = 'x@https://game.example/app.js:10:5\n@https://game.example/app.js:20:1';
     await err.captureException(e);
-    const frames = JSON.parse(f.mock.calls.at(-1)[1].body).payload.frames;
+    const { frames } = await lastItem(f);
     expect(frames.length).toBe(2);
     expect(frames[0]).toMatchObject({ function: 'x', filename: 'https://game.example/app.js', lineno: 10, colno: 5 });
     expect(frames[1].function).toBe('<anonymous>');
+  });
+
+  it('capture calls before init warn and return undefined instead of throwing', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    core.resetAll();
+    core.init({});
+    expect(err.captureException(new Error('x'))).toBeUndefined();
+  });
+
+  it('a capture that cannot be serialised never throws into the game', async () => {
+    mockErr();
+    const weird = { toString() { throw new Error('nope'); } };
+    await expect(err.captureException(weird)).resolves.toBe(false);
   });
 });

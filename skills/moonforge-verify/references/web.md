@@ -39,11 +39,13 @@ curl -s -o /dev/null -w "%{http_code}" -X POST \
 Expect `200`/`202`. Note `timestamp` is unix **seconds** (`date +%s`) — the
 previous version of this check sent `0`, which lands in 1970 and is invisible to
 any dashboard query. Repeat against `/api/errors` with a minimal error payload if error
-tracking was instrumented.
+tracking was instrumented (the SDK itself sends errors in batches to
+`/api/errors/batch`).
 
 ## 3. Runtime check (manual)
 Ask the user to run the game and watch the browser Network tab for POSTs to
-`/api/send` (and `/api/errors`). `session_start` **and** `first_open` should
+`/api/send` (and `/api/errors/batch` — error reports are batched, so expect
+them up to 5s after the error, or on tab hide). `session_start` **and** `first_open` should
 both fire on a fresh browser profile / cleared localStorage (a normal reload
 must **not** re-fire `first_open`). If the project's own version differs from
 a previously-seen one (e.g. bump `appVersion` in `init()` and reload), confirm
